@@ -145,7 +145,7 @@ button { cursor: pointer; }
 .mlist button.armed { color: var(--danger); }
 .msged { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid var(--accent); border-radius: 12px; }
 .msged h3 { margin: 0; font-size: 14px; }
-.msged .sub { display: flex; flex-direction: column; gap: 12px; }
+.sub { display: flex; flex-direction: column; gap: 12px; }
 .acts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; position: relative; }
 .acts > li { display: flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 2px; position: relative; }
 .acts > li.dragging { z-index: 2; box-shadow: 0 8px 20px rgb(0 0 0 / 0.16); border-color: var(--accent); }
@@ -186,6 +186,19 @@ button { cursor: pointer; }
 .found b { color: var(--fg); font-weight: 600; }
 .row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .sel { margin: 0; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.stepper { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0; }
+.stepper li { flex: 1 1 0; min-width: 0; }
+.stepper button { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); text-align: left; color: var(--fg); }
+.stepper button[aria-current="step"] { border-color: var(--fg); background: var(--surface); box-shadow: inset 0 0 0 1px var(--fg); }
+.stepper .n { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--line); background: var(--surface); }
+.stepper button[aria-current="step"] .n { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.stepper .t { display: flex; flex-direction: column; min-width: 0; }
+.stepper .t b { font-size: 13px; }
+.stepper .t small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.steppanel { display: flex; flex-direction: column; gap: 12px; }
+.steppanel > .sel { border: 0; padding: 0; }
+.steppanel > .sel > legend { display: none; }
+.stepnav { display: flex; justify-content: space-between; }
 .sel legend { font-size: 12px; font-weight: 600; color: var(--muted); padding: 0 4px; }
 .sel .icons { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 .sel .icons button { min-height: 28px; }
@@ -1674,6 +1687,50 @@ const textInput = (value, placeholder, maxLength, list) => {
 };
 
 // ---- small controls: button groups, icon picker, colour picker ----
+/** One-line description of a selector, for stepper summaries. */
+const selSummary = (s) => (s.kind === 'source' ? 'Source' : s.kind === 'target' ? 'Target'
+  : [s.q && `“${s.q}”`, ...s.tags.map((t) => `#${t}`), ...s.icons.map((k) => ICONS[k][0])].filter(Boolean).join(' + ') || 'Query: nothing yet');
+/**
+ * Horizontal stepper: numbered headers (title + live summary) above one visible panel, with Back / Next.
+ * Headers are clickable, so steps can be visited in any order; hidden panels keep their state.
+ */
+function stepper(steps) {
+  const el = document.createElement('div');
+  el.className = 'steppanel';
+  const head = document.createElement('ol');
+  head.className = 'stepper';
+  const panels = steps.map((st) => { const p = document.createElement('div'); p.className = 'steppanel'; p.append(st.el); return p; });
+  const back = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: 'Back' });
+  const next = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: 'Next' });
+  const nav = Object.assign(document.createElement('div'), { className: 'stepnav' });
+  nav.append(back, next);
+  let cur = 0;
+  const heads = steps.map((st, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    const t = document.createElement('span'); t.className = 't';
+    t.append(Object.assign(document.createElement('b'), { textContent: st.title }), document.createElement('small'));
+    b.append(Object.assign(document.createElement('span'), { className: 'n', textContent: String(i + 1) }), t);
+    b.addEventListener('click', () => go(i));
+    const li = document.createElement('li'); li.append(b); head.append(li);
+    return b;
+  });
+  const refresh = () => heads.forEach((b, i) => { b.querySelector('small').textContent = steps[i].summary(); });
+  const go = (i) => {
+    cur = i;
+    panels.forEach((p, k) => { p.hidden = k !== i; });
+    heads.forEach((b, k) => (k === i ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current')));
+    back.disabled = i === 0;
+    next.hidden = i === steps.length - 1;
+    refresh();
+  };
+  back.addEventListener('click', () => go(cur - 1));
+  next.addEventListener('click', () => go(cur + 1));
+  el.append(head, ...panels, nav);
+  go(0);
+  return { el, refresh };
+}
+
 /** Single-choice button group. options: [[value, label, svgHtml?]]. */
 function segmented(options, value, labelText) {
   const el = document.createElement('div');
@@ -1853,7 +1910,18 @@ function actionBody(a, link) {
       const rangeRow = Object.assign(document.createElement('div'), { className: 'range' });
       rangeRow.append(amount, out);
       elasticField.append(Object.assign(document.createElement('span'), { className: 'lbl', textContent: 'Elasticity' }), onLabel, rangeRow);
-      el.append(from.el, to.el, field('New line label', label), labelled('Arrow', head), labelled('Line', dash), elasticField);
+      const conn = Object.assign(document.createElement('div'), { className: 'sub' });
+      conn.append(field('New line label', label), labelled('Arrow', head), labelled('Line', dash), elasticField);
+      const lineSummary = () => [label.value.trim() && `“${label.value.trim()}”`, { solid: 'solid', dashed: 'dashed', flow: 'flowing' }[dash.value], on.checked && 'rubber band'].filter(Boolean).join(', ');
+      const steps = stepper([
+        { title: 'From', el: from.el, summary: () => selSummary(from.read(false)) },
+        { title: 'To', el: to.el, summary: () => selSummary(to.read(false)) },
+        { title: 'Connection', el: conn, summary: lineSummary },
+      ]);
+      from.onChange(steps.refresh); to.onChange(steps.refresh);
+      for (const x of [label, on, amount]) x.addEventListener('input', steps.refresh);
+      for (const x of [head.el, dash.el]) x.addEventListener('click', steps.refresh);
+      el.append(steps.el);
       return { el, focus: null, read: () => ({ kind: 'connect', from: from.read(), to: to.read(), label: label.value.trim(), head: head.value, dash: dash.value, elasticity: on.checked ? Number(amount.value) : 0 }) };
     }
     case 'send': {
