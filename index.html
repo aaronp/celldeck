@@ -1598,7 +1598,7 @@ const parseTags = (raw) => [...new Set(raw.split(',').map((t) => t.trim()).filte
  * Tag chips plus an "Add a tag" box, as in the element panel, for message steps. A tag starting with $ uses a
  * message field ($env); the suggestions list the stage's tags and the message's fields.
  */
-function tagEditor(initial, onChange = () => {}) {
+function tagEditor(initial, onChange = () => {}, label = '') {
   let tags = [...initial];
   const chips = Object.assign(document.createElement('div'), { className: 'tags' });
   const list = Object.assign(document.createElement('datalist'), { id: uid('dl') });
@@ -1624,7 +1624,7 @@ function tagEditor(initial, onChange = () => {}) {
   input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ',') { ev.preventDefault(); commit(); } }); // Enter must not submit the step
   render();
   return {
-    field: () => { const f = field('Tags', input); input.before(chips); f.append(list); return f; },
+    field: () => { const f = field('Tags', input, label); input.before(chips); f.append(list); return f; },
     /** Current tags, including any still being typed; strict=false (live previews) ignores a half-typed one. */
     read: (strict = true) => {
       if (strict && !commit()) throw new UserError(`“${input.value.trim()}” isn't a usable tag.`);
@@ -1756,7 +1756,7 @@ function selectorControl(legend, sel, kinds = [['source', 'Source'], ['target', 
   const q = document.createElement('div');
   q.className = 'sub';
   const text = textInput(sel.kind === 'query' ? sel.q : '', 'label, tag or icon name', 60);
-  const tags = tagEditor(sel.kind === 'query' ? sel.tags : [], () => changed());
+  const tags = tagEditor(sel.kind === 'query' ? sel.tags : [], () => changed(), 'all of; a bubble\'s tags count for its elements');
   const icons = document.createElement('div');
   icons.className = 'icons'; icons.setAttribute('role', 'group');
   const iconsLbl = Object.assign(document.createElement('span'), { className: 'lbl', id: uid('l'), textContent: 'Icons (any of)' });

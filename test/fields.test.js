@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_DECK, applyCommand, createRuntime, fillAction, fillText, messageCommand, parseDeck } from '../lib/core.js';
+import { EMPTY_DECK, applyCommand, createRuntime, fillAction, fillText, messageCommand, parseDeck, resolveSelector } from '../lib/core.js';
 
 test('fillText replaces known $fields, keeps unknown ones, and turns $$ into $', () => {
   assert.equal(fillText('$foo-$bar costs $$5 ($nope)', { foo: 'a', bar: 'b' }), 'a-b costs $5 ($nope)');
@@ -54,4 +54,14 @@ test('remove can target a query whose tag comes from a field', () => {
   const old = { id: 'old', label: 'old', actions: [{ kind: 'remove' }] };
   const sc2 = applyCommand(scene, { type: 'addLink', link: link('l4', 'el-storage', 'el-ui', [old]) });
   assert.equal(messageCommand(sc2, rt, 'l4', 'old', 's').cmd.cmds[0].id, 'el-ui');
+});
+
+test('query tags must all match, and a bubble\'s tags count for its elements', () => {
+  const db = (id, bubbleId) => ({ id, bubbleId, label: 'DB', icon: 'database', imageId: null, tags: ['database'], hue: null });
+  const bub = (id, tag, x) => ({ id, title: tag, hue: 'teal', x, y: 0, orbit: null, tags: [tag] });
+  let sc = applyCommand(scene, { type: 'addBubble', bubble: bub('s1', 'system1', 400), elements: [db('db1'), { ...db('api1'), label: 'API', tags: ['api'] }] });
+  sc = applyCommand(sc, { type: 'addBubble', bubble: bub('s2', 'system2', 800), elements: [db('db2')] });
+  const q = { kind: 'query', q: '', tags: ['system1', 'database'], icons: [] };
+  assert.deepEqual(resolveSelector(sc, q, { from: 'el-ui', to: 'el-ui' }), ['db1']);
+  assert.deepEqual(resolveSelector(sc, { ...q, tags: ['system2'] }, { from: 'el-ui', to: 'el-ui' }), ['db2']);
 });
