@@ -193,6 +193,11 @@ button { cursor: pointer; }
 .swatch.auto { background: var(--surface-2); box-shadow: none; border: 2px dashed var(--muted); }
 .swatch.auto[aria-pressed="true"] { border-style: solid; border-color: var(--fg); }
 .msgbar { position: absolute; top: 12px; left: 0; right: 0; margin-inline: auto; width: fit-content; max-width: calc(100% - 32px); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; padding: 6px; border-radius: 14px; background: color-mix(in srgb, var(--surface) 90%, transparent); border: 1px solid var(--line); box-shadow: 0 8px 24px rgb(0 0 0 / 0.10); z-index: 4; animation: msgIn 0.28s ease-out; }
+.msgform { position: absolute; top: 64px; left: 0; right: 0; margin-inline: auto; width: min(360px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); z-index: 5; }
+.msgform h3 { margin: 0 0 2px; font-size: 14px; }
+.maprow { display: grid; grid-template-columns: minmax(60px, auto) 1fr; align-items: center; gap: 8px; }
+.maprow label { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.maprow input { min-height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); min-width: 0; }
 .msgbar .from { font-size: 12px; color: var(--muted); padding: 0 6px 0 4px; white-space: nowrap; }
 .msgbar .from b { color: var(--fg); }
 .mbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px 0 8px; border-radius: 999px; border: 1px solid var(--accent); background: var(--surface); color: var(--fg); font-weight: 600; font-size: 13px; white-space: nowrap; }
@@ -300,6 +305,7 @@ button { cursor: pointer; }
     <canvas id="gl" aria-hidden="true"></canvas>
     <canvas id="ov" role="img" aria-label="Bubble stage. Drag elements out of bubbles to split them off; drop onto a bubble to merge."></canvas>
     <div class="msgbar" id="msgbar" role="toolbar" aria-label="Messages" hidden></div>
+    <form class="msgform" id="msgForm" aria-label="Message fields" hidden></form>
     <div class="pickbar" id="pickbar" hidden>Click the bubble to orbit around · Esc to cancel</div>
     <div class="banner" id="banner" role="alert" hidden><p><strong>Problem: </strong><span id="bannerText"></span></p><button type="button" id="bannerClose">Dismiss</button></div>
     <p class="hint">Drag an element past the membrane to split it off · Drop it on another bubble to merge · Double-click empty space to add a bubble · Scroll to zoom, drag the background to pan</p>
@@ -437,6 +443,7 @@ button { cursor: pointer; }
         <form class="msged" id="msgEd" hidden aria-labelledby="msgEdTitle">
           <h3 id="msgEdTitle">New message</h3>
           <div class="field"><label for="mLabel">Label</label><input type="text" id="mLabel" maxlength="40" placeholder="e.g. provision DB" autocomplete="off"></div>
+          <div class="field"><label for="mFields">Input fields <span class="hint2">optional, comma separated</span></label><input type="text" id="mFields" maxlength="200" placeholder="e.g. name, env" autocomplete="off"><p class="note">Asked for when the message is sent. Use them in steps as <code>$name</code> (<code>$$</code> for a plain $).</p></div>
           <div class="field">
             <span class="lbl" id="mActsLbl">When it arrives, in order</span>
             <p class="note">Click a step to change it. Drag the handle to reorder.</p>
@@ -519,7 +526,7 @@ button { cursor: pointer; }
 </script>
 <script type="module">
 import {
-  HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, buildSteps, detachGap, clamp, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt,
+  HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, buildSteps, detachGap, clamp, FIELD_PATTERN, TEMPLATE_TAG_PATTERN, fieldRefs, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt,
 } from './lib/core.js';
 import { createDeckStore, memoryStorage } from './lib/store.js';
 
@@ -1516,7 +1523,7 @@ function availableMessages() {
   return app.scene.links.filter((l) => l.from === app.selection.id).flatMap((l) => l.messages.map((msg) => ({ link: l, msg, target: ix.elements.get(l.to) })));
 }
 
-function sendMessage(linkId, messageId, depth = 0) {
+function sendMessage(linkId, messageId, depth = 0, values = {}) {
   const l = indexOf(app.scene).links.get(linkId);
   if (!l) throw new Error(`bug: send on missing connection ${linkId}`);
   const msg = l.messages.find((m) => m.id === messageId);
@@ -1524,8 +1531,44 @@ function sendMessage(linkId, messageId, depth = 0) {
   const body = app.rt.links[linkId];
   const g = body && linkGeometry(app.rt, body);
   const len = g ? pointAlong(g.pts, 1).total : 200;
-  app.packets = [...app.packets, { key: newId('pk'), linkId, messageId, depth, label: msg.label, start: app.rt.t, dur: clamp(len / 380, 0.7, 1.8) }];
+  app.packets = [...app.packets, { key: newId('pk'), linkId, messageId, depth, values, label: msg.label, start: app.rt.t, dur: clamp(len / 380, 0.7, 1.8) }];
 }
+
+/** Send a message from its button: straight away, or after asking for its fields in a small form under the message bar. */
+function requestSend(linkId, messageId) {
+  const msg = indexOf(app.scene).links.get(linkId)?.messages.find((m) => m.id === messageId);
+  if (!msg) throw new Error(`bug: send of missing message ${messageId}`);
+  if (!msg.fields?.length) { sendMessage(linkId, messageId); return; }
+  const form = $('msgForm');
+  const inputs = msg.fields.map((f) => Object.assign(document.createElement('input'), { type: 'text', id: uid('mf'), name: f, maxLength: 60, autocomplete: 'off', required: true }));
+  form.replaceChildren(
+    Object.assign(document.createElement('h3'), { textContent: msg.label }),
+    ...inputs.map((inp) => {
+      const row = Object.assign(document.createElement('div'), { className: 'maprow' });
+      row.append(Object.assign(document.createElement('label'), { htmlFor: inp.id, textContent: inp.name }), inp);
+      return row;
+    }),
+    (() => {
+      const row = Object.assign(document.createElement('div'), { className: 'actions' });
+      const cancel = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: 'Cancel' });
+      cancel.addEventListener('click', closeSendForm);
+      row.append(Object.assign(document.createElement('button'), { type: 'submit', className: 'btn primary', textContent: 'Send' }), cancel);
+      return row;
+    })(),
+  );
+  form.onsubmit = (ev) => {
+    ev.preventDefault();
+    closeSendForm();
+    if (!indexOf(app.scene).links.get(linkId)?.messages.some((m) => m.id === messageId)) { showError(new UserError(`“${msg.label}” is no longer on the stage.`)); return; }
+    sendMessage(linkId, messageId, 0, Object.fromEntries(inputs.map((inp) => [inp.name, inp.value.trim()])));
+  };
+  const bar = $('msgbar');
+  form.style.top = bar.hidden ? '' : `${bar.offsetTop + bar.offsetHeight + 8}px`;
+  form.hidden = false;
+  inputs[0].focus();
+}
+function closeSendForm() { $('msgForm').hidden = true; $('msgForm').replaceChildren(); }
+$('msgForm').addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Escape') closeSendForm(); }); // typing here is not a stage shortcut
 
 function deliverArrivedPackets() {
   const arrived = app.packets.filter((pk) => app.rt.t - pk.start >= pk.dur);
@@ -1533,18 +1576,80 @@ function deliverArrivedPackets() {
   app.packets = app.packets.filter((pk) => !arrived.includes(pk));
   for (const pk of arrived) {
     try {
-      const { cmd, hints, sends, notes } = messageCommand(app.scene, app.rt, pk.linkId, pk.messageId, newId('m'));
+      const { cmd, hints, sends, notes } = messageCommand(app.scene, app.rt, pk.linkId, pk.messageId, newId('m'), pk.values);
       if (cmd.cmds.length && !dispatch(cmd, hints)) continue;
       if (notes.length) showError(new UserError(notes.join(' ')));
       if (sends.length && pk.depth + 1 >= LIMIT_CHAIN) { showError(new UserError(`Stopped a chain of messages after ${LIMIT_CHAIN} hops, so a loop cannot run forever.`)); continue; }
-      for (const sd of sends) sendMessage(sd.linkId, sd.messageId, pk.depth + 1);
+      for (const sd of sends) sendMessage(sd.linkId, sd.messageId, pk.depth + 1, sd.values);
     } catch (err) { showError(err); }
   }
 }
 
 let uidN = 0;
 const uid = (p) => `${p}${++uidN}`;
-const parseTags = (raw) => [...new Set(raw.split(',').map((t) => t.trim()).filter(Boolean).map(normalizeTag))];
+// Tags typed into message steps: plain tags, or ones with $field placeholders that are checked once filled in.
+const parseTags = (raw) => [...new Set(raw.split(',').map((t) => t.trim()).filter(Boolean).map((t) => {
+  if (!t.includes('$')) return normalizeTag(t);
+  const x = t.toLowerCase().replace(/\s+/g, ' ');
+  if (!new RegExp(TEMPLATE_TAG_PATTERN).test(x)) throw new UserError(`“${t}”: a tag with $fields is still up to 24 letters, digits, spaces, - and _.`);
+  return x;
+}))];
+/**
+ * Tag chips plus an "Add a tag" box, as in the element panel, for message steps. A tag starting with $ uses a
+ * message field ($env); the suggestions list the stage's tags and the message's fields.
+ */
+function tagEditor(initial, onChange = () => {}) {
+  let tags = [...initial];
+  const chips = Object.assign(document.createElement('div'), { className: 'tags' });
+  const list = Object.assign(document.createElement('datalist'), { id: uid('dl') });
+  let fields = [];
+  try { fields = parseFields($('mFields').value); } catch { /* reported when the message is saved */ }
+  list.append(...[...fields.map((f) => `$${f}`), ...[...$('tagList').options].map((o) => o.value)].map((value) => Object.assign(document.createElement('option'), { value })));
+  const input = textInput('', fields.length ? `Add a tag or $${fields[0]}, press Enter` : 'Add a tag and press Enter', 24, list.id);
+  const render = () => renderTagChips(chips, tags, (t) => { tags = tags.filter((x) => x !== t); render(); onChange(); });
+  /** Turn the typed text into a chip; returns false (after reporting) when it isn't a usable tag. */
+  const commit = (report = true) => {
+    const raw = input.value.replace(/,/g, ' ').trim();
+    if (!raw) return true;
+    let t;
+    try { [t] = parseTags(raw); } catch (err) { if (report) showError(err); return false; }
+    if (!tags.includes(t)) {
+      if (tags.length >= 12) { if (report) showError(new UserError('A step can use up to 12 tags.')); return false; }
+      tags = [...tags, t];
+    }
+    input.value = '';
+    render(); onChange();
+    return true;
+  };
+  input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ',') { ev.preventDefault(); commit(); } }); // Enter must not submit the step
+  render();
+  return {
+    field: () => { const f = field('Tags', input); input.before(chips); f.append(list); return f; },
+    /** Current tags, including any still being typed; strict=false (live previews) ignores a half-typed one. */
+    read: (strict = true) => {
+      if (strict && !commit()) throw new UserError(`“${input.value.trim()}” isn't a usable tag.`);
+      return tags;
+    },
+  };
+}
+/** Field names typed as "name, env": lowercase identifiers, at most 8. */
+function parseFields(raw) {
+  const names = [...new Set(raw.split(',').map((f) => f.trim().replace(/^\$/, '')).filter(Boolean))];
+  for (const f of names) if (!new RegExp(FIELD_PATTERN).test(f)) throw new UserError(`“${f}” can't be a field name: use lowercase letters, digits and _, starting with a letter.`);
+  if (names.length > 8) throw new UserError('A message can ask for up to 8 fields.');
+  return names;
+}
+/** Every piece of text in a step that may hold $fields. */
+function actionTexts(a) {
+  const sel = (x) => (x?.kind === 'query' ? [x.q, ...x.tags] : []);
+  switch (a.kind) {
+    case 'add': return [a.label, ...a.tags];
+    case 'connect': return [a.label, ...sel(a.from), ...sel(a.to)];
+    case 'send': return [a.message, ...Object.values(a.args ?? {}), ...sel(a.from)];
+    case 'remove': return sel(a.which);
+    default: return [];
+  }
+}
 const field = (labelText, control, hint) => {
   const f = document.createElement('div');
   f.className = 'field';
@@ -1643,15 +1748,15 @@ const labelled = (text, control) => {
 };
 
 /** A From/To/Senders selector: source, target, or a query. Returns its element, a reader and a change hook. */
-function selectorControl(legend, sel) {
+function selectorControl(legend, sel, kinds = [['source', 'Source'], ['target', 'Target'], ['query', 'Query']]) {
   const box = document.createElement('fieldset');
   box.className = 'sel';
   box.append(Object.assign(document.createElement('legend'), { textContent: legend }));
-  const kind = segmented([['source', 'Source'], ['target', 'Target'], ['query', 'Query']], sel.kind, `${legend}: which elements`);
+  const kind = segmented(kinds, sel.kind, `${legend}: which elements`);
   const q = document.createElement('div');
   q.className = 'sub';
   const text = textInput(sel.kind === 'query' ? sel.q : '', 'label, tag or icon name', 60);
-  const tags = textInput(sel.kind === 'query' ? sel.tags.join(', ') : '', '', 200, 'tagList');
+  const tags = tagEditor(sel.kind === 'query' ? sel.tags : [], () => changed());
   const icons = document.createElement('div');
   icons.className = 'icons'; icons.setAttribute('role', 'group');
   const iconsLbl = Object.assign(document.createElement('span'), { className: 'lbl', id: uid('l'), textContent: 'Icons (any of)' });
@@ -1669,11 +1774,10 @@ function selectorControl(legend, sel) {
   const iconField = document.createElement('div');
   iconField.className = 'field';
   iconField.append(iconsLbl, icons);
-  q.append(field('Text', text), field('Tags', tags, 'comma separated'), iconField);
+  q.append(field('Text', text), tags.field(), iconField);
   q.hidden = sel.kind !== 'query';
   kind.onChange((v) => { q.hidden = v !== 'query'; changed(); });
   text.addEventListener('input', changed);
-  tags.addEventListener('input', changed);
   box.append(kind.el, q);
   return {
     el: box,
@@ -1684,7 +1788,7 @@ function selectorControl(legend, sel) {
       if (k === 'source' || k === 'target') return { kind: k };
       if (k !== 'query') throw new Error(`bug: selector kind ${k}`);
       let tagList;
-      try { tagList = parseTags(tags.value); } catch (err) { if (strict) throw err; tagList = []; }
+      tagList = tags.read(strict);
       const out = { kind: 'query', q: text.value.trim(), tags: tagList, icons: [...icons.querySelectorAll('[aria-pressed="true"]')].map((b) => b.dataset.icon) };
       if (strict && !out.q && !out.tags.length && !out.icons.length) throw new UserError(`Give the “${legend}” query some text, tags or icons to match.`);
       return out;
@@ -1707,7 +1811,7 @@ function actionBody(a, link) {
   switch (a.kind) {
     case 'add': {
       const label = textInput(a.label, 'e.g. Postgres', 60);
-      const tags = textInput(a.tags.join(', '), 'e.g. data, async', 200, 'tagList');
+      const tags = tagEditor(a.tags);
       const iconLbl = uid('lbl'), hueLbl = uid('lbl');
       const icon = iconPicker(a.icon, iconLbl);
       const hue = huePicker(a.hue, hueLbl);
@@ -1715,14 +1819,19 @@ function actionBody(a, link) {
       iconField.append(Object.assign(document.createElement('span'), { className: 'lbl', id: iconLbl, textContent: 'Icon' }), icon.el);
       const hueField = document.createElement('div'); hueField.className = 'field';
       hueField.append(Object.assign(document.createElement('span'), { className: 'lbl', id: hueLbl, textContent: 'Chip colour' }), hue.el);
-      el.append(field('New element label', label), iconField, hueField, field('Tags', tags, 'comma separated'));
+      el.append(field('New element label', label), iconField, hueField, tags.field());
       return { el, focus: label, read: () => {
         if (!label.value.trim()) throw new UserError('Give the new element a label.');
-        return { kind: 'add', label: label.value.trim(), icon: icon.value, tags: parseTags(tags.value), hue: hue.value };
+        return { kind: 'add', label: label.value.trim(), icon: icon.value, tags: tags.read(), hue: hue.value };
       } };
     }
-    case 'split': case 'clone': case 'remove':
-      el.append(Object.assign(document.createElement('p'), { className: 'note', textContent: { split: 'The target leaves its bubble, carried on in the direction the message travelled.', clone: 'A copy of the target (label, icon, image, tags, colour) appears beside it in the same bubble. Connections are not copied.', remove: 'The target is deleted, with this connection and any others it had.' }[a.kind] }));
+    case 'remove': {
+      const which = selectorControl('Remove', a.which ?? { kind: 'target' }, [['target', 'Target'], ['query', 'Query']]);
+      el.append(Object.assign(document.createElement('p'), { className: 'note', textContent: 'Removes the target, or every element the query matches when the message arrives (e.g. a tag of $env). Their connections go with them.' }), which.el);
+      return { el, focus: null, read: () => { const w = which.read(); return w.kind === 'target' ? { kind: 'remove' } : { kind: 'remove', which: w }; } };
+    }
+    case 'split': case 'clone':
+      el.append(Object.assign(document.createElement('p'), { className: 'note', textContent: { split: 'The target leaves its bubble, carried on in the direction the message travelled.', clone: 'A copy of the target (label, icon, image, tags, colour) appears beside it in the same bubble. Connections are not copied.' }[a.kind] }));
       return { el, focus: null, read: () => ({ kind: a.kind }) };
     case 'connect': {
       const from = selectorControl('From', a.from), to = selectorControl('To', a.to);
@@ -1758,6 +1867,21 @@ function actionBody(a, link) {
       const pickField = document.createElement('div'); pickField.className = 'field';
       pickField.append(Object.assign(document.createElement('span'), { className: 'lbl', id: pickLbl, textContent: 'Message to send' }), picks);
       let chosen = a.message;
+      const args = { ...(a.args ?? {}) };
+      // Fields the chosen message asks for: map each to text that may use this message's own $fields.
+      const mapField = document.createElement('div'); mapField.className = 'field';
+      let chosenFields = [];
+      const renderMapping = () => {
+        mapField.hidden = !chosenFields.length;
+        mapField.replaceChildren(Object.assign(document.createElement('span'), { className: 'lbl', textContent: `Fill in “${chosen}”` }), ...chosenFields.map((f) => {
+          const inp = textInput(args[f] ?? '', 'e.g. $name, or fixed text', 60);
+          inp.addEventListener('input', () => { args[f] = inp.value; });
+          const row = Object.assign(document.createElement('div'), { className: 'maprow' });
+          const lab = Object.assign(document.createElement('label'), { htmlFor: inp.id, textContent: f });
+          row.append(lab, inp);
+          return row;
+        }));
+      };
       // Run the selector against the stage as it is now, and offer the messages those elements can send.
       const runSelector = () => {
         const sel = from.read(false);
@@ -1781,15 +1905,18 @@ function actionBody(a, link) {
           found.append(opts.length ? `${opts.length} message${opts.length === 1 ? '' : 's'} available.` : 'None of them can send a message yet: add messages to their outgoing connections first.');
         }
         pickField.hidden = all.length === 0;
+        chosenFields = all.find((o) => o.label === chosen)?.fields ?? Object.keys(args);
+        renderMapping();
       };
       find.addEventListener('click', runSelector);
       from.onChange(runSelector);
-      el.append(from.el, find, found, pickField);
+      el.append(from.el, find, found, pickField, mapField);
       runSelector();
       return { el, focus: null, read: () => {
         const sel = from.read();
         if (!chosen) throw new UserError('Pick which message the senders should send. Use Find senders to see what they can send.');
-        return { kind: 'send', from: sel, message: chosen };
+        const mapped = Object.fromEntries(chosenFields.filter((f) => (args[f] ?? '').trim()).map((f) => [f, args[f].trim()]));
+        return { kind: 'send', from: sel, message: chosen, ...(Object.keys(mapped).length ? { args: mapped } : {}) };
       } };
     }
     default: throw new Error(`bug: no editor for action ${a.kind}`);
@@ -1932,7 +2059,11 @@ function setStepKind(kind, link) {
   for (const b of $('stepKinds').children) b.setAttribute('aria-pressed', String(b.dataset.kind === kind));
   const seed = kind === stepEdit.original.kind ? stepEdit.original : DEFAULT_ACTION[kind]();
   stepEdit.body = actionBody(seed, link);
-  $('stepBody').replaceChildren(stepEdit.body.el);
+  let fields = [];
+  try { fields = parseFields($('mFields').value); } catch { /* reported when the message is saved */ }
+  const hint = fields.length && ['add', 'connect', 'send'].includes(kind)
+    ? [Object.assign(document.createElement('p'), { className: 'note', textContent: `This message's fields: ${fields.map((f) => `$${f}`).join(', ')}. Use them in the text boxes and tags below.` })] : [];
+  $('stepBody').replaceChildren(...hint, stepEdit.body.el);
 }
 $('stepForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
@@ -2003,6 +2134,7 @@ function openMessageEditor(linkId, messageId) {
   app.msgDraft = { linkId, messageId, actions: existing ? existing.actions : [] };
   $('msgEdTitle').textContent = existing ? `Edit “${existing.label}”` : 'New message';
   $('mLabel').value = existing?.label ?? '';
+  $('mFields').value = (existing?.fields ?? []).join(', ');
   renderUI();
   if (existing) $('mLabel').focus();
   else openStepDialog(null);
@@ -2018,7 +2150,12 @@ $('msgEd').addEventListener('submit', (ev) => {
     const label = $('mLabel').value.trim();
     if (!label) throw new UserError('Give the message a label; it appears on the send button and on the packet.');
     if (!d.actions.length) throw new UserError('Add at least one step.');
-    msg = parseOrThrow(MessageSchema, { id: d.messageId ?? newId('msg'), label, actions: d.actions }, 'Message');
+    const fields = parseFields($('mFields').value);
+    d.actions.forEach((a, i) => {
+      const unknown = [...new Set(actionTexts(a).flatMap(fieldRefs))].filter((f) => !fields.includes(f));
+      if (unknown.length) throw new UserError(`Step ${i + 1} uses ${unknown.map((f) => `$${f}`).join(', ')}, which ${unknown.length > 1 ? 'are not fields' : 'is not a field'} of this message. Add ${unknown.length > 1 ? 'them' : 'it'} to Input fields, or write $$ for a plain $.`);
+    });
+    msg = parseOrThrow(MessageSchema, { id: d.messageId ?? newId('msg'), label, ...(fields.length ? { fields } : {}), actions: d.actions }, 'Message');
   } catch (err) { showError(err); return; }
   const l = indexOf(app.scene).links.get(d.linkId);
   const messages = d.messageId === null ? [...l.messages, msg] : l.messages.map((m) => (m.id === d.messageId ? msg : m));
@@ -2044,7 +2181,7 @@ function renderMessages() {
       const txt = document.createElement('div'); txt.className = 'mtxt';
       txt.append(Object.assign(document.createElement('b'), { textContent: m.label }), Object.assign(document.createElement('span'), { textContent: `${describeMessage(m, app.scene)} · ${from.label || 'start'} → ${to.label || 'end'}` }));
       const send = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Send' });
-      send.addEventListener('click', () => sendMessage(l.id, m.id));
+      send.addEventListener('click', () => requestSend(l.id, m.id));
       const edit = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Edit' });
       edit.addEventListener('click', () => openMessageEditor(l.id, m.id));
       const armed = msgDeleteArmed === m.id;
@@ -2088,7 +2225,7 @@ function renderMessages() {
     if (i < 9) b.append(Object.assign(document.createElement('span'), { className: 'k', textContent: String(i + 1) }));
     b.insertAdjacentHTML('beforeend', glyph(msg.actions[0].kind));
     b.append(Object.assign(document.createElement('span'), { textContent: msg.label }), Object.assign(document.createElement('span'), { className: 'to', textContent: `→ ${target.label || 'target'}` }));
-    b.addEventListener('click', () => sendMessage(link.id, msg.id));
+    b.addEventListener('click', () => requestSend(link.id, msg.id));
     return b;
   }));
   if (wasHidden) { bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = ''; }
@@ -2642,7 +2779,7 @@ document.addEventListener('keydown', (ev) => {
   if ($('stepDlg').open || $('openDlg').open) return; // the dialog handles its own keys (Esc closes it)
   const typing = ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement;
   if (app.mode === 'present') {
-    if (/^[1-9]$/.test(ev.key) && availableMessages()[Number(ev.key) - 1]) { ev.preventDefault(); const m = availableMessages()[Number(ev.key) - 1]; sendMessage(m.link.id, m.msg.id); }
+    if (/^[1-9]$/.test(ev.key) && availableMessages()[Number(ev.key) - 1]) { ev.preventDefault(); const m = availableMessages()[Number(ev.key) - 1]; requestSend(m.link.id, m.msg.id); }
     // ponytail: single digit only, so views 10+ are reached by arrows or the strip; add a typed-number buffer if decks grow that long.
     else if (/^[1-9]$/.test(ev.key) && app.views[Number(ev.key) - 1]) { ev.preventDefault(); goToView(app.views[Number(ev.key) - 1].id); }
     else if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(ev.key)) { ev.preventDefault(); stepView(1); }
