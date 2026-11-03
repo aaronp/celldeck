@@ -1013,7 +1013,7 @@ function setScene(next, { history, hints = { spawnFrom: {} } }) {
 function dispatch(cmd, hints = { spawnFrom: {} }) {
   try {
     const frozen = freezeScene(app.scene, app.rt);
-    setScene(applyCommand(frozen, cmd), { history: app.mode === 'edit', hints });
+    setScene(applyCommand(frozen, cmd), { history: true, hints }); // present mode has its own short-lived history
     return true;
   } catch (err) {
     showError(err);
@@ -1207,6 +1207,7 @@ function goToView(id) {
   app.activeViewId = id;
   app.selection = null;
   setScene(v.scene, { history: app.mode === 'edit' });
+  if (app.mode === 'present') { app.past = []; app.future = []; } // undo in present stays within the current slide
   app.cam = { ...v.camera };
   setParams({ view: id });
   renderUI();
@@ -1240,6 +1241,7 @@ function stepView(dir) {
 function showBuildStep() {
   app.selection = null;
   setScene(app.build.steps[app.build.i], { history: false });
+  app.past = []; app.future = [];
   renderUI();
 }
 function toggleNavMode() {
@@ -1251,7 +1253,8 @@ function toggleNavMode() {
 
 // ---------- present mode ----------
 function enterPresent() {
-  app.presentStash = { scene: freezeScene(app.scene, app.rt), cam: { ...app.cam } };
+  app.presentStash = { scene: freezeScene(app.scene, app.rt), cam: { ...app.cam }, past: app.past, future: app.future };
+  app.past = []; app.future = [];
   app.mode = 'present'; app.pick = null; app.selection = null;
   $('app').classList.add('present');
   setParams({ present: '' });
@@ -1270,6 +1273,7 @@ function exitPresent() {
   const st = app.presentStash;
   app.presentStash = null;
   setScene(st.scene, { history: false });
+  app.past = st.past; app.future = st.future; // present-mode deletions and messages never reach the edit history
   app.cam = st.cam;
   renderUI();
   resize();
@@ -2644,6 +2648,12 @@ document.addEventListener('keydown', (ev) => {
     else if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(ev.key)) { ev.preventDefault(); stepView(1); }
     else if (['ArrowLeft', 'PageUp'].includes(ev.key)) { ev.preventDefault(); stepView(-1); }
     else if (ev.key === 'Escape') exitPresent();
+    else if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.shiftKey ? redo() : undo(); }
+    else if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'y') { ev.preventDefault(); redo(); }
+    else if ((ev.key === 'Delete' || ev.key === 'Backspace') && app.selection?.kind === 'element') {
+      ev.preventDefault();
+      if (dispatch({ type: 'deleteElement', id: app.selection.id })) { app.selection = null; renderUI(); }
+    }
     return;
   }
   if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 's') {
