@@ -211,6 +211,10 @@ button { cursor: pointer; }
 .chip { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px 0 6px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; }
 .chip .n { font-family: var(--font-mono); font-size: 11px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); }
 .chip[aria-current="true"] { border-color: var(--fg); background: var(--surface); font-weight: 600; }
+.chips .chip { touch-action: pan-x; }
+.chip.dragging { position: relative; z-index: 1; opacity: 0.75; cursor: grabbing; }
+.chip.drop-before { box-shadow: -5px 0 0 -2px var(--accent); }
+.chips.drop-end .chip:last-child { box-shadow: 5px 0 0 -2px var(--accent); }
 .chip[aria-current="true"] .n { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .empty { font-size: 13px; color: var(--muted); }
 .vedit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
@@ -220,6 +224,27 @@ button { cursor: pointer; }
 .hud:hover, .hud:focus-within { opacity: 1; }
 .hud .pos { font-family: var(--font-mono); font-size: 12px; padding: 0 10px; white-space: nowrap; max-width: 50vw; overflow: hidden; text-overflow: ellipsis; }
 .hud .btn { border-radius: 999px; border: 0; }
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; margin: -6px 0 -4px -6px; }
+.crumbs .sep { color: var(--muted); padding: 0 1px; }
+.crumb { position: relative; }
+.crumb > .go { border: 0; background: none; padding: 4px 6px; border-radius: 6px; color: var(--muted); font-weight: 500; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crumb > .go:hover { background: var(--surface-2); color: var(--fg); }
+.crumb > .go[aria-current="true"] { color: var(--fg); font-weight: 600; }
+.crumb .qa { display: none; position: absolute; top: 100%; left: 0; z-index: 5; padding-top: 4px; }
+.crumb:hover .qa, .crumb:focus-within .qa { display: block; }
+.qa-in { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 6px 18px rgb(0 0 0 / 0.12); }
+.qa-in button { width: 30px; height: 30px; border: 0; background: none; border-radius: 7px; display: grid; place-items: center; color: var(--fg); padding: 0; }
+.qa-in button:hover, .qa-in button:focus-visible { background: var(--surface-2); }
+.qa-in svg { width: 16px; height: 16px; }
+.rtbar { display: flex; gap: 4px; }
+.rtbar .btn { width: 32px; min-height: 32px; }
+.rt { min-height: 72px; max-height: 260px; overflow-y: auto; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); line-height: 1.45; overflow-wrap: anywhere; }
+.rt:empty::before { content: attr(data-placeholder); color: var(--muted); }
+.rt ul, .rt ol, .pdesc ul, .pdesc ol { margin: 4px 0; padding-left: 20px; }
+.rt p, .pdesc p { margin: 0 0 4px; }
+.rt a, .pdesc a { color: var(--accent); }
+.pdesc { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(16px, env(safe-area-inset-bottom, 0px)) + 56px); width: min(760px, calc(100% - 32px)); max-height: 30vh; overflow-y: auto; padding: 12px 16px; border-radius: 14px; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); box-shadow: 0 8px 24px rgb(0 0 0 / 0.10); font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 10px; overflow-wrap: anywhere; z-index: 3; }
+.pdesc h3 { margin: 0 0 2px; font-family: var(--font-display); font-size: 15px; }
 .ptop { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; gap: 6px; }
 .ptop .btn { opacity: 0.4; }
 .ptop .btn:hover, .ptop .btn:focus-visible { opacity: 1; }
@@ -281,6 +306,7 @@ button { cursor: pointer; }
       <button class="btn icon" id="next" type="button" aria-label="Next view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
     <nav class="pstrip" id="pstrip" aria-label="Views" hidden></nav>
+    <aside class="pdesc" id="pdesc" aria-label="Notes" hidden></aside>
     <div class="ptop" id="ptop" hidden>
       <button class="btn" id="share" type="button" title="Copy a link to this slide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg><span id="shareTxt">Share</span></button>
       <button class="btn" id="exit" type="button">Exit · Esc</button>
@@ -288,6 +314,7 @@ button { cursor: pointer; }
   </main>
 
   <aside class="insp" id="insp" aria-label="Inspector">
+    <nav class="crumbs" id="crumbs" aria-label="Selection path" hidden></nav>
     <section id="inspNone">
       <h2>Background</h2>
       <div class="field" style="margin:12px 0 20px">
@@ -298,6 +325,21 @@ button { cursor: pointer; }
           <div class="range"><input type="range" id="stOpacity" min="0" max="100" step="5" aria-label="Background colour strength"><output id="stOpacityOut" for="stOpacity"></output></div>
         </div>
       </div>
+      <h2>Slide notes</h2>
+      <div style="margin:12px 0 20px">
+        <div class="field">
+          <span class="lbl" id="stDescLbl">Description</span>
+          <div class="rtbar" id="stDescBar" role="toolbar" aria-label="Description formatting">
+            <button type="button" class="btn icon" data-cmd="bold" aria-label="Bold" title="Bold (⌘B)"><b>B</b></button>
+            <button type="button" class="btn icon" data-cmd="italic" aria-label="Italic" title="Italic (⌘I)"><i>I</i></button>
+            <button type="button" class="btn icon" data-cmd="insertUnorderedList" aria-label="Bullet list" title="Bullet list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg></button>
+            <button type="button" class="btn icon" data-cmd="link" aria-label="Link" title="Link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></button>
+            <button type="button" class="btn icon" data-cmd="unlink" aria-label="Remove link" title="Remove link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1M4 4l16 16"/></svg></button>
+          </div>
+          <div class="rt" id="stDesc" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="stDescLbl" data-placeholder="Optional notes for this slide"></div>
+          <label class="check" for="stDescShow"><input type="checkbox" id="stDescShow">Show in presentation</label>
+        </div>
+      </div>
       <h2>Stage</h2>
       <ul class="tips" style="margin-top:12px">
         <li><b>Pull apart.</b> Drag an icon out of its bubble. Past the membrane it pinches off into its own bubble.</li>
@@ -305,7 +347,7 @@ button { cursor: pointer; }
         <li><b>Add around.</b> Select a bubble, then Add around. New bubbles bud off and the ring re-spaces itself evenly.</li>
         <li><b>Tags &amp; filter.</b> Tag bubbles and elements in this panel. Type in the filter bar (<span class="kbd">/</span>) or use the funnel to pick tags and icons; everything else fades back.</li>
         <li><b>Connect.</b> Turn on Connect (<span class="kbd">C</span>), then drag from one element to another. Click a line to label and style it.</li>
-        <li><b>Views.</b> Save view snapshots the stage. In Present, <span class="kbd">→</span> morphs to the next one.</li>
+        <li><b>Views.</b> Save as new snapshots the stage into a new view; Save updates the selected one. In Present, <span class="kbd">→</span> morphs to the next one.</li>
       </ul>
     </section>
     <section id="inspBubble" hidden>
@@ -319,6 +361,7 @@ button { cursor: pointer; }
           <button class="btn" type="button" id="bAround">Add around</button>
           <button class="btn" type="button" id="bOrbit">Orbit…</button>
           <button class="btn" type="button" id="bUnorbit">Leave orbit</button>
+          <button class="btn" type="button" id="bDup" title="Duplicate (⌘D)">Duplicate</button>
           <button class="btn danger" type="button" id="bDel">Delete bubble</button>
         </div>
       </div>
@@ -327,6 +370,18 @@ button { cursor: pointer; }
       <div style="display:flex;flex-direction:column;gap:16px">
         <h2>Element</h2>
         <div class="field"><label for="eLabel">Label</label><input type="text" id="eLabel" maxlength="60"></div>
+        <div class="field">
+          <span class="lbl" id="eDescLbl">Description</span>
+          <div class="rtbar" id="eDescBar" role="toolbar" aria-label="Description formatting">
+            <button type="button" class="btn icon" data-cmd="bold" aria-label="Bold" title="Bold (⌘B)"><b>B</b></button>
+            <button type="button" class="btn icon" data-cmd="italic" aria-label="Italic" title="Italic (⌘I)"><i>I</i></button>
+            <button type="button" class="btn icon" data-cmd="insertUnorderedList" aria-label="Bullet list" title="Bullet list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg></button>
+            <button type="button" class="btn icon" data-cmd="link" aria-label="Link" title="Link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></button>
+            <button type="button" class="btn icon" data-cmd="unlink" aria-label="Remove link" title="Remove link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1M4 4l16 16"/></svg></button>
+          </div>
+          <div class="rt" id="eDesc" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="eDescLbl" data-placeholder="Optional notes, bullets and links"></div>
+          <label class="check" for="eDescShow"><input type="checkbox" id="eDescShow">Show in presentation</label>
+        </div>
         <div class="field"><label for="eTagIn">Tags</label><div class="tags" id="eTags"></div><input type="text" id="eTagIn" list="tagList" maxlength="24" placeholder="Add a tag and press Enter" autocomplete="off"></div>
         <div class="field"><span class="lbl" id="eIconLbl">Icon</span><div class="icons" id="eIcons" role="group" aria-labelledby="eIconLbl"></div></div>
         <div class="field"><span class="lbl" id="eHueLbl">Chip colour</span><div class="swatches" id="eHues" role="group" aria-labelledby="eHueLbl"></div></div>
@@ -432,10 +487,10 @@ button { cursor: pointer; }
       <input type="text" id="vName" maxlength="60" aria-label="View name">
       <button class="btn icon" type="button" id="vLeft" aria-label="Move view earlier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       <button class="btn icon" type="button" id="vRight" aria-label="Move view later"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-      <button class="btn" type="button" id="vUpdate">Update from stage</button>
+      <button class="btn" type="button" id="vUpdate" title="Save the stage into this view (⌘S)">Save</button>
       <button class="btn danger" type="button" id="vDel">Delete</button>
     </div>
-    <button class="btn primary" type="button" id="vSave" title="Save view (Ctrl/Cmd+S updates the selected view)">Save view</button>
+    <button class="btn primary" type="button" id="vSave" title="Save the stage as a new view (Ctrl/Cmd+S updates the selected view)">Save as new</button>
   </footer>
 </div>
 
@@ -903,6 +958,7 @@ function drawOverlay(ctx, rt, scene, ui) {
 // ---------- app state (the only mutable holder) ----------
 const app = {
   scene: EMPTY_DECK.scene,
+  downloadName: 'deck.json', // file name for plain downloads; Save as changes it where there is no file picker
   fileHandle: null, // FileSystemFileHandle the deck was opened from or saved as; Download writes back to it
   rt: createRuntime(EMPTY_DECK.scene, EMPTY_DECK.camera),
   cam: { ...EMPTY_DECK.camera },
@@ -1049,7 +1105,7 @@ function openDeck(deck) {
   return true;
 }
 // File System Access API (Chromium): opening a file through it keeps a handle, so Download writes back to that file.
-// Elsewhere Download falls back to a normal browser download of deck.json and Save as is hidden.
+// Elsewhere Download is a normal browser download, and Save as asks for the file name first.
 const canSaveAs = 'showSaveFilePicker' in window;
 const JSON_TYPES = [{ description: 'Cell Deck', accept: { 'application/json': ['.json'] } }];
 function setFileHandle(h) {
@@ -1061,14 +1117,20 @@ async function downloadDeck(saveAs = false) {
   if (app.mode === 'edit') saveWorking();
   const text = JSON.stringify(app.store.get(), null, 2) + '\n';
   try {
-    if (saveAs && canSaveAs) setFileHandle(await showSaveFilePicker({ suggestedName: app.fileHandle?.name ?? 'deck.json', types: JSON_TYPES }));
+    if (saveAs && canSaveAs) setFileHandle(await showSaveFilePicker({ suggestedName: app.fileHandle?.name ?? app.downloadName, types: JSON_TYPES }));
+    else if (saveAs) {
+      // No file picker here (Safari, Firefox, insecure origin, iframe): ask for a name and download under it.
+      const name = prompt('Save as', app.downloadName)?.trim();
+      if (!name) return;
+      app.downloadName = /\.json$/i.test(name) ? name : `${name}.json`;
+    }
     if (app.fileHandle) {
       if ((await app.fileHandle.requestPermission?.({ mode: 'readwrite' })) === 'denied') throw new Error(`No permission to write ${app.fileHandle.name}. Use Save as.`);
       const w = await app.fileHandle.createWritable();
       await w.write(text); await w.close();
     } else {
       const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-      const a = Object.assign(document.createElement('a'), { href: url, download: 'deck.json' });
+      const a = Object.assign(document.createElement('a'), { href: url, download: app.downloadName });
       document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     }
@@ -1232,6 +1294,7 @@ function renderUI() {
   if (selB) renderTagChips($('bTags'), selB.tags, (t) => dispatch({ type: 'updateBubble', id: selB.id, patch: { tags: selB.tags.filter((x) => x !== t) } }));
   if (selL) renderTagChips($('lTags'), selL.tags, (t) => dispatch({ type: 'updateLink', id: selL.id, patch: { tags: selL.tags.filter((x) => x !== t) } }));
   if (selE) renderTagChips($('eTags'), selE.tags, (t) => dispatch({ type: 'updateElement', id: selE.id, patch: { tags: selE.tags.filter((x) => x !== t) } }));
+  renderCrumbs(selB, selE);
   renderFilter();
   renderStageControls();
   renderPresentStrip();
@@ -1244,6 +1307,7 @@ function renderUI() {
   }
   if (selE) {
     if (document.activeElement !== $('eLabel')) $('eLabel').value = selE.label;
+    syncRich('eDesc', selE.id, selE);
     for (const b of $('eIcons').children) b.setAttribute('aria-pressed', String((b.dataset.icon || null) === selE.icon));
     const canUpload = !!app.assets;
     $('eUploadLbl').hidden = !canUpload;
@@ -1265,7 +1329,7 @@ function renderUI() {
   if (!app.views.length) {
     const p = document.createElement('span');
     p.className = 'empty';
-    p.textContent = 'No views yet. Arrange the stage, then Save view.';
+    p.textContent = 'No views yet. Arrange the stage, then Save as new.';
     chips.append(p);
   }
   app.views.forEach((v, i) => {
@@ -1275,7 +1339,10 @@ function renderUI() {
     const n = document.createElement('span'); n.className = 'n'; n.textContent = String(i + 1);
     const t = document.createElement('span'); t.textContent = v.name;
     b.append(n, t);
-    b.addEventListener('click', () => goToView(v.id));
+    b.title = 'Click to show · drag to reorder';
+    b.dataset.i = String(i);
+    b.addEventListener('pointerdown', (ev) => startViewDrag(ev, b, v.id));
+    b.addEventListener('click', (ev) => { if (b.dataset.dragged) { ev.preventDefault(); return; } goToView(v.id); });
     chips.append(b);
   });
   const active = app.views.find((v) => v.id === app.activeViewId);
@@ -1284,6 +1351,12 @@ function renderUI() {
 
   const hudOn = app.mode === 'present';
   $('hud').hidden = !hudOn; $('ptop').hidden = !hudOn;
+  // Footer notes: the clicked element's; otherwise (nothing clicked, or it has no shown notes) the slide's.
+  const shown = (x) => (x?.showDescription && x.description ? x : null);
+  const clicked = hudOn && app.selection?.kind === 'element' ? shown(indexOf(app.scene).elements.get(app.selection.id)) : null;
+  const note = hudOn ? clicked ?? shown(app.scene.stage) : null;
+  $('pdesc').hidden = !note;
+  $('pdesc').replaceChildren(...(clicked?.label ? [Object.assign(document.createElement('h3'), { textContent: clicked.label })] : []), ...(note ? [safeHtml(note.description)] : []));
   if (hudOn) {
     const i = app.views.findIndex((v) => v.id === app.activeViewId);
     $('hudPos').textContent = app.views.length ? `${i + 1} / ${app.views.length} · ${active?.name ?? ''}` : 'No saved views';
@@ -1715,6 +1788,42 @@ function moveStep(i, j) {
   renderSteps();
 }
 /** Pointer drag on a step's grip: the row follows the pointer and the list reorders where it is dropped. */
+/** Drag a view chip sideways to reorder; a press that moves less than a few pixels stays a click. */
+function startViewDrag(ev, chip, id) {
+  if (ev.button !== 0 || app.mode !== 'edit') return;
+  const list = $('chips');
+  const from = Number(chip.dataset.i);
+  const rows = [...list.querySelectorAll('.chip')];
+  const mids = rows.map((r) => { const b = r.getBoundingClientRect(); return b.left + b.width / 2; });
+  const x0 = ev.clientX;
+  let to = from, dragging = false;
+  const move = (e) => {
+    if (!dragging) {
+      if (Math.abs(e.clientX - x0) < 5) return;
+      dragging = true; chip.dataset.dragged = '1';
+      chip.classList.add('dragging'); chip.setPointerCapture(e.pointerId);
+    }
+    chip.style.transform = `translateX(${e.clientX - x0}px)`;
+    to = mids.filter((m, k) => k !== from && e.clientX > m).length;
+    rows.forEach((r, k) => r.classList.toggle('drop-before', to !== from && k !== from && k === (to >= from ? to + 1 : to)));
+    list.classList.toggle('drop-end', to === rows.length - 1 && to !== from);
+  };
+  const up = () => {
+    chip.removeEventListener('pointermove', move);
+    chip.removeEventListener('pointerup', up);
+    chip.removeEventListener('pointercancel', up);
+    if (!dragging) return;
+    chip.classList.remove('dragging'); chip.style.transform = '';
+    rows.forEach((r) => r.classList.remove('drop-before'));
+    list.classList.remove('drop-end');
+    setTimeout(() => delete chip.dataset.dragged, 0); // swallow the click that ends the drag
+    if (to !== from) storeWrite('reorder', () => app.store.moveViewTo(id, to));
+  };
+  chip.addEventListener('pointermove', move);
+  chip.addEventListener('pointerup', up);
+  chip.addEventListener('pointercancel', up);
+}
+
 function startStepDrag(ev, li) {
   ev.preventDefault();
   const list = $('mActs');
@@ -1806,8 +1915,7 @@ if ('showOpenFilePicker' in window) $('openFileLbl').addEventListener('click', a
   try { [h] = await showOpenFilePicker({ types: JSON_TYPES }); } catch (err) { if (err?.name !== 'AbortError') openError(err.message); return; }
   openFileDeck(await h.getFile(), h);
 });
-if (!canSaveAs) $('saveAsBtn').remove();
-else $('saveAsBtn').addEventListener('click', () => downloadDeck(true));
+$('saveAsBtn').addEventListener('click', () => downloadDeck(true));
 $('openBtn').addEventListener('click', () => { openError(''); $('openDlg').showModal(); });
 $('downloadBtn').addEventListener('click', () => downloadDeck());
 $('openClose').addEventListener('click', () => $('openDlg').close());
@@ -1973,6 +2081,7 @@ function renderMessages() {
 // ---------- background ----------
 function renderStageControls() {
   const st = app.scene.stage;
+  syncRich('stDesc', `stage:${app.activeViewId}`, st);
   $('stGrid').checked = st.grid;
   $('stCustom').checked = st.color !== null;
   $('stColor').disabled = st.color === null;
@@ -1995,6 +2104,41 @@ const INK = Object.freeze({
   cellsOnLight: { teal: '#0e9f8e', violet: '#6d4df2', amber: '#d98a0b', rose: '#db3a62', blue: '#2672e8', green: '#2f9a41' },
   cellsOnDark: { teal: '#2cd3bd', violet: '#a48dff', amber: '#f4b23f', rose: '#ff6e92', blue: '#5e9dff', green: '#5fcb6c' },
 });
+
+// In present mode on a custom-coloured slide, the floating controls (notes, HUD, view strip, share/exit, messages)
+// take the slide's backdrop and matching ink instead of the theme's panel colours.
+let chromeKey = '';
+function paintPresentChrome(look) {
+  const vars = look ? (() => {
+    const rgb = `rgb(${look.bg.map((v) => Math.round(v * 255)).join(' ')})`;
+    return { '--surface': rgb, '--surface-2': `color-mix(in srgb, ${rgb} 88%, ${look.ink.fg})`, '--fg': look.ink.fg, '--muted': look.ink.muted, '--accent': look.ink.accent, '--line': `color-mix(in srgb, ${look.ink.fg} 22%, ${rgb})` };
+  })() : {};
+  const key = JSON.stringify(vars);
+  if (key === chromeKey) return;
+  chromeKey = key;
+  const el = $('stage');
+  for (const k of ['--surface', '--surface-2', '--fg', '--muted', '--accent', '--line']) el.style.removeProperty(k);
+  for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
+}
+
+// Save button: "Save*" in primary style while the stage differs from the selected view. Runs every frame, so it
+// only re-compares when the scene, the view or the camera actually changed.
+// Orbiting bubbles' x/y are ignored: they sit on their ring, and freezing the scene on save rewrites them.
+const sceneSig = (scene) => JSON.stringify({ ...scene, bubbles: scene.bubbles.map((b) => (b.orbit ? { ...b, x: 0, y: 0 } : b)) });
+let saveMemo = [];
+function renderSaveState() {
+  const active = app.mode === 'edit' ? app.views.find((v) => v.id === app.activeViewId) : null;
+  const memo = [app.scene, active, app.cam.x, app.cam.y, app.cam.zoom];
+  if (memo.every((v, i) => v === saveMemo[i])) return;
+  saveMemo = memo;
+  const cam = roundCam(app.cam), saved = active && roundCam(active.camera); // hand-written files may hold unrounded cameras
+  const dirty = !!active && (cam.x !== saved.x || cam.y !== saved.y || cam.zoom !== saved.zoom || sceneSig(app.scene) !== sceneSig(active.scene));
+  const b = $('vUpdate');
+  b.textContent = dirty ? 'Save*' : 'Save';
+  b.classList.toggle('primary', dirty);
+  b.setAttribute('aria-label', dirty ? 'Save (unsaved changes)' : 'Save');
+  $('vSave').classList.toggle('primary', !active); // one primary at a time: Save as new only leads when no view is selected
+}
 
 // ---------- presenter views strip ----------
 function renderPresentStrip() {
@@ -2069,6 +2213,77 @@ $('bAround').addEventListener('click', () => addAround(app.selection.id));
 $('bOrbit').addEventListener('click', () => { app.pick = 'orbit'; renderUI(); });
 $('bUnorbit').addEventListener('click', () => dispatch({ type: 'setOrbit', id: app.selection.id, hubId: null }));
 $('bDel').addEventListener('click', () => dispatch({ type: 'deleteBubble', id: app.selection.id }));
+// ---------- rich-text description ----------
+// Descriptions are stored as HTML and can arrive from any ?src deck, so every render goes through this allowlist.
+const RT_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'A', 'BR', 'P', 'DIV']);
+const RT_DROP = new Set(['SCRIPT', 'STYLE', 'TEMPLATE', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'MATH', 'NOSCRIPT', 'TITLE', 'HEAD']);
+const safeUrl = (u) => /^(https?:|mailto:)/i.test(String(u).trim()) ? String(u).trim() : null;
+/** Sanitised DocumentFragment for stored description HTML: allowlisted tags only, no attributes but a safe link href. */
+function safeHtml(html) {
+  const src = new DOMParser().parseFromString(`<body>${html}`, 'text/html').body; // inert: nothing runs or loads
+  const copy = (from, to) => {
+    for (const n of from.childNodes) {
+      if (n.nodeType === Node.TEXT_NODE) { to.append(n.data); continue; }
+      if (n.nodeType !== Node.ELEMENT_NODE) continue;
+      const tag = n.tagName.toUpperCase(); // SVG/MathML children keep lower-case names
+      if (RT_DROP.has(tag)) continue;
+      if (!RT_TAGS.has(tag) || n.namespaceURI !== 'http://www.w3.org/1999/xhtml') { copy(n, to); continue; } // anything else: keep its text only
+      const el = document.createElement(tag.toLowerCase());
+      if (tag === 'A') {
+        const href = safeUrl(n.getAttribute('href'));
+        if (!href) { copy(n, to); continue; }
+        Object.assign(el, { href, target: '_blank', rel: 'noopener noreferrer' });
+      }
+      copy(n, el); to.append(el);
+    }
+    return to;
+  };
+  return copy(src, document.createDocumentFragment());
+}
+function cleanDescription(root) {
+  if (!root.textContent.trim()) return '';
+  const box = document.createElement('div');
+  box.append(safeHtml(root.innerHTML));
+  for (const a of box.querySelectorAll('a')) { a.removeAttribute('target'); a.removeAttribute('rel'); }
+  return box.innerHTML;
+}
+/** Show a stored description in its editor unless the user is typing there; `key` names what is being edited. */
+function syncRich(prefix, key, obj) {
+  const ed = $(prefix), tag = `${key}\n${obj.description ?? ''}`;
+  if (document.activeElement !== ed && ed.dataset.of !== tag) { ed.replaceChildren(safeHtml(obj.description ?? '')); ed.dataset.of = tag; }
+  $(`${prefix}Show`).checked = !!obj.showDescription;
+}
+/** Wire one rich-text field (editor, toolbar, show toggle); `update(patch)` writes description/showDescription. */
+function wireRich(prefix, update) {
+  const ed = $(prefix);
+  ed.addEventListener('input', () => {
+    const description = cleanDescription(ed);
+    if (description.length > 4000) { showError(new UserError('The description is too long (4000 characters of formatted text at most).')); return; }
+    if (update({ description })) ed.dataset.of = (ed.dataset.of ?? '').split('\n')[0] + `\n${description}`;
+  });
+  ed.addEventListener('keydown', (ev) => ev.stopPropagation()); // typing here is not a stage shortcut
+  $(`${prefix}Show`).addEventListener('change', (ev) => update({ showDescription: ev.target.checked }));
+  for (const b of $(`${prefix}Bar`).children) {
+    b.addEventListener('mousedown', (ev) => ev.preventDefault()); // keep the editor's selection
+    b.addEventListener('click', () => {
+      const sel = getSelection();
+      const range = sel.rangeCount && ed.contains(sel.anchorNode) ? sel.getRangeAt(0) : null;
+      ed.focus();
+      if (b.dataset.cmd !== 'link') { document.execCommand(b.dataset.cmd); return; }
+      const raw = prompt('Link to (https://…)', 'https://');
+      if (!raw || raw.trim() === 'https://') return;
+      const href = safeUrl(raw) ?? safeUrl(`https://${raw.trim()}`);
+      if (range) { sel.removeAllRanges(); sel.addRange(range); }
+      if (sel.isCollapsed || !range) {
+        const a = Object.assign(document.createElement('a'), { href, textContent: href });
+        document.execCommand('insertHTML', false, a.outerHTML);
+      } else document.execCommand('createLink', false, href);
+    });
+  }
+}
+wireRich('eDesc', (patch) => app.selection?.kind === 'element' && dispatch({ type: 'updateElement', id: app.selection.id, patch }));
+wireRich('stDesc', (patch) => dispatch({ type: 'setStage', patch }));
+
 $('eLabel').addEventListener('input', (ev) => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { label: ev.target.value.slice(0, 60) } }));
 $('eDel').addEventListener('click', () => dispatch({ type: 'deleteElement', id: app.selection.id }));
 function duplicateSelected() {
@@ -2081,6 +2296,63 @@ function duplicateSelected() {
   }
 }
 $('eDup').addEventListener('click', duplicateSelected);
+/** Copy the selected bubble and its elements (not their connections) beside it; an orbiting bubble joins the same ring. */
+function duplicateBubble() {
+  const ix = indexOf(app.scene);
+  const b = ix.bubbles.get(app.selection.id);
+  const bid = newId('bb');
+  const els = ix.members.get(b.id).map((eid) => [newId('el'), ix.elements.get(eid)]);
+  const dx = bubbleRadius(app.scene, b.id) * 2 + 40;
+  const cmd = { type: 'addBubble', bubble: { ...b, id: bid, x: Math.round(b.x + dx), y: b.y }, elements: els.map(([id, e]) => ({ ...e, id })) };
+  if (dispatch(cmd, { spawnFrom: Object.fromEntries(els.map(([id, e]) => [id, e.id])) })) {
+    app.selection = { kind: 'bubble', id: bid };
+    renderUI();
+  }
+}
+$('bDup').addEventListener('click', duplicateBubble);
+
+// ---------- breadcrumbs: hub / … / bubble / element, with quick bubble actions on hover ----------
+const QA_ICON = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+const BUBBLE_ACTIONS = [
+  ['Add element', 'M12 5v14M5 12h14', (id) => $('bAddEl').click(), () => true],
+  ['Add around', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 8v8M8 12h8', (id) => addAround(id), () => true],
+  ['Orbit…', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 12h.01', () => { app.pick = 'orbit'; renderUI(); }, (b) => !b.orbit],
+  ['Duplicate', 'M9 9h11v11H9z M5 15H4V4h11v1', () => duplicateBubble(), () => true],
+];
+function renderCrumbs(selB, selE) {
+  const nav = $('crumbs');
+  const ix = indexOf(app.scene);
+  const leaf = selB ?? (selE && ix.bubbles.get(selE.bubbleId));
+  nav.hidden = !leaf || app.mode !== 'edit';
+  if (nav.hidden) return;
+  const chain = [];
+  for (let b = leaf; b && !chain.includes(b); b = b.orbit && ix.bubbles.get(b.orbit.hubId)) chain.unshift(b);
+  const crumb = (text, current, onGo, bubble) => {
+    const c = document.createElement('span'); c.className = 'crumb';
+    const go = document.createElement('button');
+    go.type = 'button'; go.className = 'go'; go.textContent = text; go.title = text;
+    go.setAttribute('aria-current', String(current));
+    go.addEventListener('click', onGo);
+    c.append(go);
+    if (bubble) {
+      const qa = document.createElement('div'); qa.className = 'qa';
+      const row = document.createElement('div'); row.className = 'qa-in'; row.setAttribute('role', 'toolbar'); row.setAttribute('aria-label', `Actions for ${text}`);
+      for (const [label, d, run, show] of BUBBLE_ACTIONS) {
+        if (!show(bubble)) continue;
+        const b = document.createElement('button');
+        b.type = 'button'; b.title = label; b.setAttribute('aria-label', `${label}: ${text}`); b.innerHTML = QA_ICON(d);
+        b.addEventListener('click', () => { app.selection = { kind: 'bubble', id: bubble.id }; run(bubble.id); renderUI(); });
+        row.append(b);
+      }
+      qa.append(row); c.append(qa);
+    }
+    return c;
+  };
+  const sep = () => Object.assign(document.createElement('span'), { className: 'sep', textContent: '/' });
+  const parts = chain.map((b) => crumb(b.title || 'Untitled bubble', !selE && b === leaf, () => { app.selection = { kind: 'bubble', id: b.id }; renderUI(); }, b));
+  if (selE) parts.push(crumb(selE.label || 'Element', true, () => {}, null));
+  nav.replaceChildren(...parts.flatMap((p, i) => (i ? [sep(), p] : [p])));
+}
 
 const toggleConnect = () => { app.pick = app.pick === 'connect' ? null : 'connect'; renderUI(); };
 $('connect').addEventListener('click', toggleConnect);
@@ -2343,6 +2615,7 @@ document.addEventListener('keydown', (ev) => {
   if (mod && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.shiftKey ? redo() : undo(); }
   else if (mod && ev.key.toLowerCase() === 'y') { ev.preventDefault(); redo(); }
   else if (mod && ev.key.toLowerCase() === 'd' && app.selection?.kind === 'element') { ev.preventDefault(); duplicateSelected(); }
+  else if (mod && ev.key.toLowerCase() === 'd' && app.selection?.kind === 'bubble') { ev.preventDefault(); duplicateBubble(); }
   else if (ev.key === 'Escape') { app.pick = null; app.selection = null; renderUI(); }
   else if ((ev.key === 'Delete' || ev.key === 'Backspace') && app.selection) {
     ev.preventDefault();
@@ -2388,6 +2661,8 @@ function frame(now) {
     // Ink follows the actual backdrop, not the theme, so a dark custom colour in light mode (or the reverse) stays readable.
     const ink = darkBg ? INK.onDark : INK.onLight;
     const backdrop = { ...app.theme, bg, grid: hexRgb(ink.fg), gridA: (darkBg ? 0.09 : 0.13) * st.grid, dark: darkBg ? 1 : 0 };
+    paintPresentChrome(app.mode === 'present' && st.a > 0.001 ? { bg, ink } : null);
+    renderSaveState();
     if (renderer) renderer.draw(buildFrame(app.rt, app.scene, { ...size, theme: { ...app.theme, cells: Object.fromEntries(HUES.map((h) => [h, hexRgb((darkBg ? INK.cellsOnDark : INK.cellsOnLight)[h])])) }, dragBubbleId: input.drag?.kind === 'bubble' ? input.drag.id : null }), backdrop);
     drawOverlay(ctx, app.rt, app.scene, { ...size, theme: { ...app.theme, css: { ...app.theme.css, ...ink, cells: darkBg ? INK.cellsOnDark : INK.cellsOnLight } }, mode: app.mode, selection: app.selection, dropTargetId: app.dropTargetId, pickMode: app.pick === 'orbit', packets: app.packets, pendingLink: app.drag?.kind === 'link' && app.drag.moved ? { fromId: app.drag.fromId, x: app.drag.x, y: app.drag.y, targetId: app.drag.targetId } : null });
   } catch (err) {

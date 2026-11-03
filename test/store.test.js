@@ -18,6 +18,12 @@ test('element label style is optional and validated', () => {
   assert.throws(() => parseDeck(withEl({ strike: 'yes' })));
 });
 
+test('slide notes live on the stage and are optional', () => {
+  const withStage = (patch) => ({ ...EMPTY_DECK, scene: { ...EMPTY_DECK.scene, stage: { ...EMPTY_DECK.scene.stage, ...patch } } });
+  parseDeck(withStage({ description: '<b>Intro</b>', showDescription: true }));
+  assert.throws(() => parseDeck(withStage({ description: 'x'.repeat(4001) })), /malformed/);
+});
+
 test('deck version: missing means 1, newer is refused', () => {
   const { version, ...old } = EMPTY_DECK;
   assert.equal(parseDeck(old).version, 1);
@@ -47,9 +53,15 @@ test('store CRUD persists to storage and notifies', () => {
   assert.equal(s.findView('START').id, 'a');
   assert.equal(s.findView('b').id, 'b');
   assert.equal(s.findView('zzz'), null);
+  s.createView(view('c'));
+  s.moveViewTo('c', 0);
+  assert.deepEqual(s.listViews().map((v) => v.id), ['c', 'b', 'a']);
+  s.moveViewTo('c', 99);
+  assert.deepEqual(s.listViews().map((v) => v.id), ['b', 'a', 'c']);
+  s.deleteView('c');
   s.deleteView('b');
   assert.throws(() => s.deleteView('b'), /No view/);
-  assert.equal(seen, 5); // the no-op move does not write
+  assert.equal(seen, 9); // the no-op move does not write
   // a fresh store on the same storage sees the same deck
   assert.deepEqual(createDeckStore(storage, 'k').get(), s.get());
 });
