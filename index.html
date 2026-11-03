@@ -304,6 +304,7 @@ button { cursor: pointer; }
       <button class="btn icon" id="prev" type="button" aria-label="Previous view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       <span class="pos" id="hudPos"></span>
       <button class="btn icon" id="next" type="button" aria-label="Next view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="btn" id="navMode" type="button"></button>
     </div>
     <nav class="pstrip" id="pstrip" aria-label="Views" hidden></nav>
     <aside class="pdesc" id="pdesc" aria-label="Notes" hidden></aside>
@@ -513,7 +514,7 @@ button { cursor: pointer; }
 </script>
 <script type="module">
 import {
-  HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, detachGap, clamp, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt,
+  HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, buildSteps, detachGap, clamp, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt,
 } from './lib/core.js';
 import { createDeckStore, memoryStorage } from './lib/store.js';
 
@@ -959,6 +960,8 @@ function drawOverlay(ctx, rt, scene, ui) {
 const app = {
   scene: EMPTY_DECK.scene,
   downloadName: 'deck.json', // file name for plain downloads; Save as changes it where there is no file picker
+  build: null, // present mode, step navigation: { toId, steps: [scene], i } while building toward the next view
+  navMode: (() => { try { return localStorage.getItem('celldeck.nav') === 'jump' ? 'jump' : 'step'; } catch { return 'step'; } })(),
   fileHandle: null, // FileSystemFileHandle the deck was opened from or saved as; Download writes back to it
   rt: createRuntime(EMPTY_DECK.scene, EMPTY_DECK.camera),
   cam: { ...EMPTY_DECK.camera },
@@ -1195,6 +1198,7 @@ function deleteView() {
 function goToView(id) {
   const v = app.views.find((x) => x.id === id);
   if (!v) throw new Error(`bug: unknown view ${id}`);
+  app.build = null;
   app.activeViewId = id;
   app.selection = null;
   setScene(v.scene, { history: app.mode === 'edit' });
@@ -1205,8 +1209,39 @@ function goToView(id) {
 function stepView(dir) {
   if (!app.views.length) return;
   const i = app.views.findIndex((x) => x.id === app.activeViewId);
+  if (app.mode === 'present' && app.navMode === 'step') {
+    const b = app.build;
+    if (b) {
+      const k = b.i + dir;
+      if (k < 0) goToView(app.activeViewId); // back past the first step: the view we started from
+      else if (k >= b.steps.length - 1) goToView(b.toId); // the last step is the next view itself
+      else { b.i = k; showBuildStep(); }
+      return;
+    }
+    const next = dir > 0 && i >= 0 ? app.views[i + 1] : null;
+    let steps = [];
+    try { if (next) steps = buildSteps(freezeScene(app.scene, app.rt), next.scene); } catch (err) { console.error(err); } // fall back to a jump
+    if (steps.length > 1) {
+      app.build = { toId: next.id, steps, i: 0 };
+      app.cam = { ...next.camera };
+      showBuildStep();
+      return;
+    }
+  }
   const j = i < 0 ? 0 : clamp(i + dir, 0, app.views.length - 1);
   if (j !== i) goToView(app.views[j].id);
+}
+
+function showBuildStep() {
+  app.selection = null;
+  setScene(app.build.steps[app.build.i], { history: false });
+  renderUI();
+}
+function toggleNavMode() {
+  app.navMode = app.navMode === 'step' ? 'jump' : 'step';
+  try { localStorage.setItem('celldeck.nav', app.navMode); } catch {}
+  if (app.build) goToView(app.build.toId); // switching mid-build finishes it
+  else renderUI();
 }
 
 // ---------- present mode ----------
@@ -1223,6 +1258,7 @@ function enterPresent() {
 function exitPresent() {
   if (app.mode !== 'present') return;
   app.mode = 'edit';
+  app.build = null;
   $('app').classList.remove('present');
   setParams({ present: null });
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -1359,9 +1395,16 @@ function renderUI() {
   $('pdesc').replaceChildren(...(clicked?.label ? [Object.assign(document.createElement('h3'), { textContent: clicked.label })] : []), ...(note ? [safeHtml(note.description)] : []));
   if (hudOn) {
     const i = app.views.findIndex((v) => v.id === app.activeViewId);
-    $('hudPos').textContent = app.views.length ? `${i + 1} / ${app.views.length} · ${active?.name ?? ''}` : 'No saved views';
-    $('prev').disabled = i <= 0;
-    $('next').disabled = i < 0 ? !app.views.length : i >= app.views.length - 1;
+    const b = app.build, to = b && app.views.find((v) => v.id === b.toId);
+    $('hudPos').textContent = !app.views.length ? 'No saved views'
+      : b ? `${i + 1} → ${i + 2} / ${app.views.length} · ${to.name} · step ${b.i + 1} of ${b.steps.length}`
+      : `${i + 1} / ${app.views.length} · ${active?.name ?? ''}`;
+    $('prev').disabled = i <= 0 && !b;
+    $('next').disabled = !b && (i < 0 ? !app.views.length : i >= app.views.length - 1);
+    const step = app.navMode === 'step';
+    $('navMode').textContent = step ? 'Step' : 'Jump';
+    $('navMode').title = step ? '→ adds one element at a time. Click to jump straight to each view.' : '→ jumps straight to the next view. Click to add one element at a time.';
+    $('navMode').setAttribute('aria-label', `Navigation: ${step ? 'step through each element' : 'jump between views'}. Click to switch.`);
   }
 }
 
@@ -2194,6 +2237,7 @@ $('share').addEventListener('click', async () => {
   clearTimeout($('share').t); $('share').t = setTimeout(() => { $('shareTxt').textContent = 'Share'; }, 2000);
 });
 $('prev').addEventListener('click', () => stepView(-1));
+$('navMode').addEventListener('click', toggleNavMode);
 $('next').addEventListener('click', () => stepView(1));
 $('vSave').addEventListener('click', saveView);
 $('vUpdate').addEventListener('click', () => updateView({ scene: freezeScene(app.scene, app.rt), camera: roundCam(app.cam) }));
