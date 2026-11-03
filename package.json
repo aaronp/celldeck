@@ -1,0 +1,12 @@
+{
+  "name": "celldeck",
+  "private": true,
+  "type": "module",
+  "description": "Cell Deck: bubble diagrams with saved views. Static page (index.html) + lib/ (core and store); no build step.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@sinclair/typebox": "0.32.35"
+  }
+}

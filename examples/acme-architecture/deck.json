@@ -1,0 +1,534 @@
+{
+  "scene": {
+    "stage": {
+      "grid": true,
+      "color": null,
+      "opacity": 1
+    },
+    "bubbles": [
+      {
+        "id": "bb-app",
+        "title": "Acme monolith",
+        "hue": "teal",
+        "x": 0,
+        "y": 0,
+        "orbit": null,
+        "tags": []
+      }
+    ],
+    "elements": [
+      {
+        "id": "el-ui",
+        "bubbleId": "bb-app",
+        "label": "Web UI",
+        "icon": "ui",
+        "imageId": null,
+        "tags": [
+          "frontend"
+        ],
+        "hue": null
+      },
+      {
+        "id": "el-identity",
+        "bubbleId": "bb-app",
+        "label": "Identity",
+        "icon": "user",
+        "imageId": null,
+        "tags": [
+          "security"
+        ],
+        "hue": null
+      },
+      {
+        "id": "el-orders",
+        "bubbleId": "bb-app",
+        "label": "Orders",
+        "icon": "store",
+        "imageId": null,
+        "tags": [
+          "domain"
+        ],
+        "hue": null
+      },
+      {
+        "id": "el-payments",
+        "bubbleId": "bb-app",
+        "label": "Payments",
+        "icon": "card",
+        "imageId": null,
+        "tags": [
+          "domain",
+          "pii"
+        ],
+        "hue": null
+      },
+      {
+        "id": "el-db",
+        "bubbleId": "bb-app",
+        "label": "Database",
+        "icon": "database",
+        "imageId": null,
+        "tags": [
+          "data"
+        ],
+        "hue": null
+      },
+      {
+        "id": "el-events",
+        "bubbleId": "bb-app",
+        "label": "Events",
+        "icon": "events",
+        "imageId": null,
+        "tags": [
+          "data"
+        ],
+        "hue": null
+      }
+    ],
+    "links": []
+  },
+  "camera": {
+    "x": 0,
+    "y": 0,
+    "zoom": 1
+  },
+  "views": [
+    {
+      "id": "v-monolith",
+      "name": "Monolith",
+      "scene": {
+        "stage": {
+          "grid": true,
+          "color": null,
+          "opacity": 1
+        },
+        "bubbles": [
+          {
+            "id": "bb-app",
+            "title": "Acme monolith",
+            "hue": "teal",
+            "x": 0,
+            "y": 0,
+            "orbit": null,
+            "tags": []
+          }
+        ],
+        "elements": [
+          {
+            "id": "el-ui",
+            "bubbleId": "bb-app",
+            "label": "Web UI",
+            "icon": "ui",
+            "imageId": null,
+            "tags": [
+              "frontend"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-identity",
+            "bubbleId": "bb-app",
+            "label": "Identity",
+            "icon": "user",
+            "imageId": null,
+            "tags": [
+              "security"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-orders",
+            "bubbleId": "bb-app",
+            "label": "Orders",
+            "icon": "store",
+            "imageId": null,
+            "tags": [
+              "domain"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-payments",
+            "bubbleId": "bb-app",
+            "label": "Payments",
+            "icon": "card",
+            "imageId": null,
+            "tags": [
+              "domain",
+              "pii"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-db",
+            "bubbleId": "bb-app",
+            "label": "Database",
+            "icon": "database",
+            "imageId": null,
+            "tags": [
+              "data"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-events",
+            "bubbleId": "bb-app",
+            "label": "Events",
+            "icon": "events",
+            "imageId": null,
+            "tags": [
+              "data"
+            ],
+            "hue": null
+          }
+        ],
+        "links": []
+      },
+      "camera": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1.2
+      }
+    },
+    {
+      "id": "v-pulled-apart",
+      "name": "Pulled apart",
+      "scene": {
+        "stage": {
+          "grid": true,
+          "color": null,
+          "opacity": 1
+        },
+        "bubbles": [
+          {
+            "id": "bb-app",
+            "title": "Web app",
+            "hue": "teal",
+            "x": -300,
+            "y": 0,
+            "orbit": null,
+            "tags": []
+          },
+          {
+            "id": "bb-auth",
+            "title": "Auth",
+            "hue": "violet",
+            "x": 0,
+            "y": -220,
+            "orbit": null,
+            "tags": []
+          },
+          {
+            "id": "bb-orders",
+            "title": "Orders",
+            "hue": "amber",
+            "x": 300,
+            "y": 0,
+            "orbit": null,
+            "tags": []
+          },
+          {
+            "id": "bb-data",
+            "title": "Data",
+            "hue": "blue",
+            "x": 0,
+            "y": 230,
+            "orbit": null,
+            "tags": []
+          }
+        ],
+        "elements": [
+          {
+            "id": "el-ui",
+            "bubbleId": "bb-app",
+            "label": "Web UI",
+            "icon": "ui",
+            "imageId": null,
+            "tags": [
+              "frontend"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-identity",
+            "bubbleId": "bb-auth",
+            "label": "Identity",
+            "icon": "user",
+            "imageId": null,
+            "tags": [
+              "security"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-orders",
+            "bubbleId": "bb-orders",
+            "label": "Orders",
+            "icon": "store",
+            "imageId": null,
+            "tags": [
+              "domain"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-payments",
+            "bubbleId": "bb-orders",
+            "label": "Payments",
+            "icon": "card",
+            "imageId": null,
+            "tags": [
+              "domain",
+              "pii"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-db",
+            "bubbleId": "bb-data",
+            "label": "Database",
+            "icon": "database",
+            "imageId": null,
+            "tags": [
+              "data"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-events",
+            "bubbleId": "bb-data",
+            "label": "Events",
+            "icon": "events",
+            "imageId": null,
+            "tags": [
+              "data"
+            ],
+            "hue": null
+          }
+        ],
+        "links": [
+          {
+            "id": "ln-signin",
+            "from": "el-ui",
+            "to": "el-identity",
+            "label": "signs in",
+            "head": "end",
+            "dash": "solid",
+            "tags": [],
+            "messages": [],
+            "elasticity": 0
+          },
+          {
+            "id": "ln-order",
+            "from": "el-ui",
+            "to": "el-orders",
+            "label": "places order",
+            "head": "end",
+            "dash": "flow",
+            "tags": [],
+            "messages": [],
+            "elasticity": 0
+          },
+          {
+            "id": "ln-write",
+            "from": "el-orders",
+            "to": "el-db",
+            "label": "writes",
+            "head": "end",
+            "dash": "solid",
+            "tags": [],
+            "messages": [],
+            "elasticity": 0
+          }
+        ]
+      },
+      "camera": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
+    },
+    {
+      "id": "v-event-driven",
+      "name": "Event-driven",
+      "scene": {
+        "stage": {
+          "grid": true,
+          "color": null,
+          "opacity": 1
+        },
+        "bubbles": [
+          {
+            "id": "bb-app",
+            "title": "Web app",
+            "hue": "teal",
+            "x": -380,
+            "y": -60,
+            "orbit": null,
+            "tags": []
+          },
+          {
+            "id": "bb-auth",
+            "title": "Auth",
+            "hue": "violet",
+            "x": -380,
+            "y": 200,
+            "orbit": null,
+            "tags": []
+          },
+          {
+            "id": "bb-data",
+            "title": "Event bus",
+            "hue": "blue",
+            "x": 160,
+            "y": 0,
+            "orbit": null,
+            "tags": []
+          },
+          {
+            "id": "bb-orders",
+            "title": "Orders",
+            "hue": "amber",
+            "x": 0,
+            "y": 0,
+            "orbit": {
+              "hubId": "bb-data"
+            },
+            "tags": []
+          },
+          {
+            "id": "bb-pay",
+            "title": "Payments",
+            "hue": "green",
+            "x": 0,
+            "y": 0,
+            "orbit": {
+              "hubId": "bb-data"
+            },
+            "tags": []
+          }
+        ],
+        "elements": [
+          {
+            "id": "el-ui",
+            "bubbleId": "bb-app",
+            "label": "Web UI",
+            "icon": "ui",
+            "imageId": null,
+            "tags": [
+              "frontend"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-identity",
+            "bubbleId": "bb-auth",
+            "label": "Identity",
+            "icon": "user",
+            "imageId": null,
+            "tags": [
+              "security"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-orders",
+            "bubbleId": "bb-orders",
+            "label": "Orders",
+            "icon": "store",
+            "imageId": null,
+            "tags": [
+              "domain"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-payments",
+            "bubbleId": "bb-pay",
+            "label": "Payments",
+            "icon": "card",
+            "imageId": null,
+            "tags": [
+              "domain",
+              "pii"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-db",
+            "bubbleId": "bb-data",
+            "label": "Database",
+            "icon": "database",
+            "imageId": null,
+            "tags": [
+              "data"
+            ],
+            "hue": null
+          },
+          {
+            "id": "el-events",
+            "bubbleId": "bb-data",
+            "label": "Events",
+            "icon": "events",
+            "imageId": null,
+            "tags": [
+              "data"
+            ],
+            "hue": null
+          }
+        ],
+        "links": [
+          {
+            "id": "ln-signin",
+            "from": "el-ui",
+            "to": "el-identity",
+            "label": "signs in",
+            "head": "end",
+            "dash": "solid",
+            "tags": [],
+            "messages": [],
+            "elasticity": 0
+          },
+          {
+            "id": "ln-order",
+            "from": "el-ui",
+            "to": "el-orders",
+            "label": "places order",
+            "head": "end",
+            "dash": "flow",
+            "tags": [],
+            "messages": [],
+            "elasticity": 0
+          },
+          {
+            "id": "ln-pub",
+            "from": "el-orders",
+            "to": "el-events",
+            "label": "OrderPlaced",
+            "head": "end",
+            "dash": "flow",
+            "tags": [],
+            "messages": [],
+            "elasticity": 0
+          },
+          {
+            "id": "ln-sub",
+            "from": "el-events",
+            "to": "el-payments",
+            "label": "charges",
+            "head": "end",
+            "dash": "dashed",
+            "tags": [],
+            "messages": [],
+            "elasticity": 0
+          }
+        ]
+      },
+      "camera": {
+        "x": -60,
+        "y": 20,
+        "zoom": 0.85
+      }
+    }
+  ]
+}
