@@ -125,7 +125,10 @@ button { cursor: pointer; }
 .bgrow .range { flex: 1; min-width: 0; }
 #stColor { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); flex: none; }
 #stColor:disabled, #stOpacity:disabled { opacity: 0.45; }
-.pstrip { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: calc(max(16px, env(safe-area-inset-right, 0px)) + 110px); display: flex; gap: 6px; overflow-x: auto; padding: 2px; scrollbar-width: none; }
+/* Present-mode top row: the view strip takes what is left of the width and scrolls; share/exit never shrink. */
+.ptopbar { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; gap: 12px; pointer-events: none; }
+.ptopbar > * { pointer-events: auto; }
+.pstrip { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; overflow-x: auto; padding: 2px; scrollbar-width: none; }
 .pstrip .chip { background: color-mix(in srgb, var(--surface) 88%, transparent); flex: none; opacity: 0.75; transition: opacity 0.2s; }
 .pstrip .chip:hover, .pstrip .chip[aria-current="true"], .pstrip .chip:focus-visible { opacity: 1; }
 .note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
@@ -245,7 +248,7 @@ button { cursor: pointer; }
 .rt a, .pdesc a { color: var(--accent); }
 .pdesc { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(16px, env(safe-area-inset-bottom, 0px)) + 56px); width: min(760px, calc(100% - 32px)); max-height: 30vh; overflow-y: auto; padding: 12px 16px; border-radius: 14px; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); box-shadow: 0 8px 24px rgb(0 0 0 / 0.10); font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 10px; overflow-wrap: anywhere; z-index: 3; }
 .pdesc h3 { margin: 0 0 2px; font-family: var(--font-display); font-size: 15px; }
-.ptop { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; gap: 6px; }
+.ptop { flex: none; margin-left: auto; display: flex; gap: 6px; }
 .ptop .btn { opacity: 0.4; }
 .ptop .btn:hover, .ptop .btn:focus-visible { opacity: 1; }
 
@@ -306,11 +309,13 @@ button { cursor: pointer; }
       <button class="btn icon" id="next" type="button" aria-label="Next view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       <button class="btn" id="navMode" type="button"></button>
     </div>
-    <nav class="pstrip" id="pstrip" aria-label="Views" hidden></nav>
     <aside class="pdesc" id="pdesc" aria-label="Notes" hidden></aside>
-    <div class="ptop" id="ptop" hidden>
-      <button class="btn" id="share" type="button" title="Copy a link to this slide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg><span id="shareTxt">Share</span></button>
-      <button class="btn" id="exit" type="button">Exit · Esc</button>
+    <div class="ptopbar">
+      <nav class="pstrip" id="pstrip" aria-label="Views" hidden></nav>
+      <div class="ptop" id="ptop" hidden>
+        <button class="btn" id="share" type="button" title="Copy a link to this slide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg><span id="shareTxt">Share</span></button>
+        <button class="btn" id="exit" type="button">Exit · Esc</button>
+      </div>
     </div>
   </main>
 
