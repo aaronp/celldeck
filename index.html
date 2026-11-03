@@ -542,7 +542,7 @@ button { cursor: pointer; }
 </script>
 <script type="module">
 import {
-  HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, buildSteps, detachGap, clamp, FIELD_PATTERN, TEMPLATE_TAG_PATTERN, fieldRefs, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt,
+  HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, presentedScene, ownedScene, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, buildSteps, detachGap, clamp, FIELD_PATTERN, TEMPLATE_TAG_PATTERN, fieldRefs, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt,
 } from './lib/core.js';
 import { createDeckStore, memoryStorage } from './lib/store.js';
 
@@ -1230,7 +1230,7 @@ function goToView(id) {
   app.build = null;
   app.activeViewId = id;
   app.selection = null;
-  setScene(v.scene, { history: app.mode === 'edit' });
+  setScene(presentedScene(app.views, id), { history: app.mode === 'edit' });
   if (app.mode === 'present') { app.past = []; app.future = []; } // undo in present stays within the current slide
   app.cam = { ...v.camera };
   setParams({ view: id });
@@ -1250,7 +1250,7 @@ function stepView(dir) {
     }
     const next = dir > 0 && i >= 0 ? app.views[i + 1] : null;
     let steps = [];
-    try { if (next) steps = buildSteps(freezeScene(app.scene, app.rt), next.scene); } catch (err) { console.error(err); } // fall back to a jump
+    try { if (next) steps = buildSteps(freezeScene(app.scene, app.rt), presentedScene(app.views, next.id)); } catch (err) { console.error(err); } // fall back to a jump
     if (steps.length > 1) {
       app.build = { toId: next.id, steps, i: 0 };
       app.cam = { ...next.camera };
@@ -2398,7 +2398,7 @@ function renderSaveState() {
   if (memo.every((v, i) => v === saveMemo[i])) return;
   saveMemo = memo;
   const cam = roundCam(app.cam), saved = active && roundCam(active.camera); // hand-written files may hold unrounded cameras
-  const dirty = !!active && (cam.x !== saved.x || cam.y !== saved.y || cam.zoom !== saved.zoom || sceneSig(app.scene) !== sceneSig(active.scene));
+  const dirty = !!active && (cam.x !== saved.x || cam.y !== saved.y || cam.zoom !== saved.zoom || sceneSig(app.scene) !== sceneSig(presentedScene(app.views, active.id)));
   const b = $('vUpdate');
   b.textContent = dirty ? 'Save*' : 'Save';
   b.classList.toggle('primary', dirty);
@@ -2463,7 +2463,7 @@ $('prev').addEventListener('click', () => stepView(-1));
 $('navMode').addEventListener('click', toggleNavMode);
 $('next').addEventListener('click', () => stepView(1));
 $('vSave').addEventListener('click', saveView);
-$('vUpdate').addEventListener('click', () => updateView({ scene: freezeScene(app.scene, app.rt), camera: roundCam(app.cam) }));
+$('vUpdate').addEventListener('click', () => updateView({ scene: ownedScene(app.views, app.activeViewId, freezeScene(app.scene, app.rt)), camera: roundCam(app.cam) }));
 $('vLeft').addEventListener('click', () => moveView(-1));
 $('vRight').addEventListener('click', () => moveView(1));
 $('vDel').addEventListener('click', deleteView);
@@ -2874,7 +2874,7 @@ document.addEventListener('keydown', (ev) => {
   if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 's') {
     ev.preventDefault();
     if (app.mode === 'edit') {
-      if (app.views.some((v) => v.id === app.activeViewId)) updateView({ scene: freezeScene(app.scene, app.rt), camera: roundCam(app.cam) });
+      if (app.views.some((v) => v.id === app.activeViewId)) updateView({ scene: ownedScene(app.views, app.activeViewId, freezeScene(app.scene, app.rt)), camera: roundCam(app.cam) });
       else saveView();
     }
     return;

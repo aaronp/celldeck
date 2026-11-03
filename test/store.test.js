@@ -80,3 +80,16 @@ test('a corrupt stored deck throws and is not overwritten', () => {
   assert.throws(() => createDeckStore(storage, 'k'), /saved in this browser/);
   assert.equal(storage.getItem('k'), '{"scene":1}');
 });
+
+test('a slide with no backdrop colour keeps the previous one in present mode', async () => {
+  const { presentedScene, ownedScene } = await import('../lib/core.js');
+  const at = (id, color, opacity = 1) => ({ ...view(id), scene: { ...EMPTY_DECK.scene, stage: { ...EMPTY_DECK.scene.stage, color, opacity } } });
+  const views = [at('a', null), at('b', '#101828', 0.8), at('c', null), at('d', '#ffffff', 0), at('e', null)];
+  const bg = (id) => presentedScene(views, id).stage;
+  assert.equal(bg('a').color, null);
+  assert.deepEqual([bg('c').color, bg('c').opacity], ['#101828', 0.8]);
+  assert.deepEqual([bg('e').color, bg('e').opacity], ['#ffffff', 0]); // 0% resets to the theme
+  assert.equal(views[2].scene.stage.color, null); // the saved view is untouched
+  assert.equal(ownedScene(views, 'c', presentedScene(views, 'c')).stage.color, null); // saving it back keeps it following
+  assert.equal(ownedScene(views, 'c', at('x', '#000000').scene).stage.color, '#000000');
+});
