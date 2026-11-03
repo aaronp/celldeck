@@ -53,7 +53,7 @@ test('remove can target a query whose tag comes from a field', () => {
   // Without "which" it still removes the target, as before.
   const old = { id: 'old', label: 'old', actions: [{ kind: 'remove' }] };
   const sc2 = applyCommand(scene, { type: 'addLink', link: link('l4', 'el-storage', 'el-ui', [old]) });
-  assert.equal(messageCommand(sc2, rt, 'l4', 'old', 's').cmd.cmds[0].id, 'el-ui');
+  assert.equal(messageCommand(sc2, rt, 'l4', 'old', 's').cmd.cmds[0].cmds[0].id, 'el-ui');
 });
 
 test('query tags must all match, and a bubble\'s tags count for its elements', () => {
@@ -64,4 +64,19 @@ test('query tags must all match, and a bubble\'s tags count for its elements', (
   const q = { kind: 'query', q: '', tags: ['system1', 'database'], icons: [] };
   assert.deepEqual(resolveSelector(sc, q, { from: 'el-ui', to: 'el-ui' }), ['db1']);
   assert.deepEqual(resolveSelector(sc, { ...q, tags: ['system2'] }, { from: 'el-ui', to: 'el-ui' }), ['db2']);
+});
+
+test('split and clone can act on a query instead of the target', () => {
+  const msgs = [
+    { id: 'cl', label: 'clone', fields: ['t'], actions: [{ kind: 'clone', which: { kind: 'query', q: '', tags: ['$t'], icons: [] } }] },
+    { id: 'sp', label: 'split', actions: [{ kind: 'split', which: { kind: 'query', q: '', tags: ['security'], icons: [] } }] },
+    { id: 'old', label: 'old', actions: [{ kind: 'clone' }] },
+  ];
+  const sc = applyCommand(scene, { type: 'addLink', link: link('l5', 'el-storage', 'el-ui', msgs) });
+  parseDeck({ ...EMPTY_DECK, scene: sc });
+  const c = messageCommand(sc, rt, 'l5', 'cl', 's', { t: 'frontend' }); // only UI is tagged frontend
+  assert.deepEqual(c.cmd.cmds[0].cmds.map((x) => x.id), ['el-ui']);
+  const sp = messageCommand(sc, rt, 'l5', 'sp', 's').cmd.cmds[0].cmds;
+  assert.deepEqual(sp.map((x) => [x.type, x.id]), [['detachElement', 'el-identity']]);
+  assert.equal(messageCommand(sc, rt, 'l5', 'old', 's').cmd.cmds[0].cmds[0].id, 'el-ui'); // no "which": the target
 });

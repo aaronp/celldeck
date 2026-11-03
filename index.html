@@ -447,6 +447,9 @@ button { cursor: pointer; }
           <label class="check" for="lElastic"><input type="checkbox" id="lElastic">Rubber band</label>
           <div class="range"><input type="range" id="lElasticity" min="0.05" max="1" step="0.05" aria-label="Elasticity amount"><output id="lElasticOut" for="lElasticity"></output></div>
         </div>
+        <div class="field"><label for="lOpacity">Opacity</label>
+          <div class="range"><input type="range" id="lOpacity" min="0" max="100" step="5"><output id="lOpacityOut" for="lOpacity"></output></div>
+        </div>
         <div class="field">
           <span class="lbl" id="lMsgsLbl">Messages</span>
           <p class="note">Messages travel from the start of the line to its end. Select the start element to send one.</p>
@@ -820,7 +823,8 @@ function drawOverlay(ctx, rt, scene, ui) {
     const selected = mode === 'edit' && selection?.kind === 'link' && selection.id === l.id;
     const pts = g.pts.map((p) => ({ x: sx(p.x), y: sy(p.y) }));
     ctx.save();
-    ctx.globalAlpha = l.a * litAlpha(l.lit);
+    // A faded or hidden line stays findable while it is selected.
+    ctx.globalAlpha = l.a * litAlpha(l.lit) * Math.max(l.op ?? 1, selected ? 0.35 : 0);
     const stroke = selected ? c.accent : c.fg;
     ctx.strokeStyle = stroke; ctx.fillStyle = stroke;
     ctx.lineWidth = 2 * Math.max(z, 0.6);
@@ -1354,6 +1358,9 @@ function renderUI() {
     $('lElasticity').disabled = selL.elasticity <= 0;
     if (selL.elasticity > 0) $('lElasticity').value = String(selL.elasticity);
     $('lElasticOut').textContent = selL.elasticity > 0 ? selL.elasticity.toFixed(2) : 'off';
+    const op = Math.round((selL.opacity ?? 1) * 100);
+    if (document.activeElement !== $('lOpacity')) $('lOpacity').value = String(op);
+    $('lOpacityOut').textContent = `${op}%`;
   }
   $('connect').setAttribute('aria-pressed', String(app.pick === 'connect'));
   if (selB) renderTagChips($('bTags'), selB.tags, (t) => dispatch({ type: 'updateBubble', id: selB.id, patch: { tags: selB.tags.filter((x) => x !== t) } }));
@@ -1659,7 +1666,7 @@ function actionTexts(a) {
     case 'add': return [a.label, ...a.tags];
     case 'connect': return [a.label, ...sel(a.from), ...sel(a.to)];
     case 'send': return [a.message, ...Object.values(a.args ?? {}), ...sel(a.from)];
-    case 'remove': return sel(a.which);
+    case 'remove': case 'split': case 'clone': return sel(a.which);
     default: return [];
   }
 }
@@ -1882,14 +1889,16 @@ function actionBody(a, link) {
         return { kind: 'add', label: label.value.trim(), icon: icon.value, tags: tags.read(), hue: hue.value };
       } };
     }
-    case 'remove': {
-      const which = selectorControl('Remove', a.which ?? { kind: 'target' }, [['target', 'Target'], ['query', 'Query']]);
-      el.append(Object.assign(document.createElement('p'), { className: 'note', textContent: 'Removes the target, or every element the query matches when the message arrives (e.g. a tag of $env). Their connections go with them.' }), which.el);
-      return { el, focus: null, read: () => { const w = which.read(); return w.kind === 'target' ? { kind: 'remove' } : { kind: 'remove', which: w }; } };
+    case 'remove': case 'split': case 'clone': {
+      const [legend, note] = {
+        remove: ['Remove', 'Removes the target, or every element the query matches when the message arrives (e.g. a tag of $env). Their connections go with them.'],
+        split: ['Split out', 'The target, or every element the query matches, leaves its bubble, carried on away from the sender.'],
+        clone: ['Clone', 'A copy of the target, or of every element the query matches (label, icon, image, tags, colour), appears beside it in the same bubble. Connections are not copied.'],
+      }[a.kind];
+      const which = selectorControl(legend, a.which ?? { kind: 'target' }, [['target', 'Target'], ['query', 'Query']]);
+      el.append(Object.assign(document.createElement('p'), { className: 'note', textContent: note }), which.el);
+      return { el, focus: null, read: () => { const w = which.read(); return w.kind === 'target' ? { kind: a.kind } : { kind: a.kind, which: w }; } };
     }
-    case 'split': case 'clone':
-      el.append(Object.assign(document.createElement('p'), { className: 'note', textContent: { split: 'The target leaves its bubble, carried on in the direction the message travelled.', clone: 'A copy of the target (label, icon, image, tags, colour) appears beside it in the same bubble. Connections are not copied.' }[a.kind] }));
-      return { el, focus: null, read: () => ({ kind: a.kind }) };
     case 'connect': {
       const from = selectorControl('From', a.from), to = selectorControl('To', a.to);
       const label = textInput(a.label, 'optional', 60);
@@ -2622,6 +2631,7 @@ $('lLabel').addEventListener('input', (ev) => dispatch({ type: 'updateLink', id:
 for (const b of $('lHead').children) b.addEventListener('click', () => dispatch({ type: 'updateLink', id: selectedLinkId(), patch: { head: b.dataset.v } }));
 for (const b of $('lDash').children) b.addEventListener('click', () => dispatch({ type: 'updateLink', id: selectedLinkId(), patch: { dash: b.dataset.v } }));
 $('lElastic').addEventListener('change', (ev) => dispatch({ type: 'updateLink', id: selectedLinkId(), patch: { elasticity: ev.target.checked ? Number($('lElasticity').value) : 0 } }));
+$('lOpacity').addEventListener('input', (ev) => dispatch({ type: 'updateLink', id: selectedLinkId(), patch: { opacity: Number(ev.target.value) / 100 } }));
 $('lElasticity').addEventListener('input', (ev) => dispatch({ type: 'updateLink', id: selectedLinkId(), patch: { elasticity: Number(ev.target.value) } }));
 $('lReverse').addEventListener('click', () => {
   const l = indexOf(app.scene).links.get(selectedLinkId());
