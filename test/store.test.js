@@ -7,7 +7,22 @@ import { createDeckStore, memoryStorage } from '../lib/store.js';
 const view = (id, name = id) => ({ id, name, scene: EMPTY_DECK.scene, camera: EMPTY_DECK.camera });
 
 test('every example deck.json is valid', () => {
-  for (const d of readdirSync('examples')) parseDeck(JSON.parse(readFileSync(`examples/${d}/deck.json`, 'utf8')), d);
+  for (const d of readdirSync('examples', { withFileTypes: true }).filter((x) => x.isDirectory()).map((x) => x.name)) parseDeck(JSON.parse(readFileSync(`examples/${d}/deck.json`, 'utf8')), d);
+});
+
+test('element label style is optional and validated', () => {
+  const withEl = (patch) => ({ ...EMPTY_DECK, scene: { ...EMPTY_DECK.scene, elements: [{ ...EMPTY_DECK.scene.elements[0], ...patch }] } });
+  parseDeck(withEl({ textHue: 'rose', strike: true, fill: true, icon: 'watch' }));
+  assert.throws(() => parseDeck(withEl({ fill: 1 })));
+  assert.throws(() => parseDeck(withEl({ textHue: 'red' })));
+  assert.throws(() => parseDeck(withEl({ strike: 'yes' })));
+});
+
+test('deck version: missing means 1, newer is refused', () => {
+  const { version, ...old } = EMPTY_DECK;
+  assert.equal(parseDeck(old).version, 1);
+  assert.throws(() => parseDeck({ ...EMPTY_DECK, version: 2 }), /newer Cell Deck/);
+  assert.throws(() => parseDeck({ ...EMPTY_DECK, version: 'x' }), /malformed at \/version/);
 });
 
 test('parseDeck rejects bad decks with a readable message', () => {

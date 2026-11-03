@@ -64,6 +64,10 @@ button { cursor: pointer; }
 .btn.primary:hover { background: var(--fg); opacity: 0.88; }
 .btn.danger { color: var(--danger); }
 .btn.icon { padding: 0; width: 36px; justify-content: center; }
+.split { display: inline-flex; }
+.split .btn:first-child:not(:last-child) { border-radius: 8px 0 0 8px; }
+.split .btn + .btn { border-left: 0; border-radius: 0 8px 8px 0; padding: 0; width: 20px; justify-content: center; }
+.split .btn + .btn svg { width: 14px; height: 14px; }
 
 .stage { grid-area: stage; position: relative; overflow: hidden; min-height: 0; }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -216,8 +220,9 @@ button { cursor: pointer; }
 .hud:hover, .hud:focus-within { opacity: 1; }
 .hud .pos { font-family: var(--font-mono); font-size: 12px; padding: 0 10px; white-space: nowrap; max-width: 50vw; overflow: hidden; text-overflow: ellipsis; }
 .hud .btn { border-radius: 999px; border: 0; }
-.exit { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); opacity: 0.4; }
-.exit:hover, .exit:focus-visible { opacity: 1; }
+.ptop { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; gap: 6px; }
+.ptop .btn { opacity: 0.4; }
+.ptop .btn:hover, .ptop .btn:focus-visible { opacity: 1; }
 
 .app.present { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage"; }
 .app.present .bar, .app.present .insp, .app.present .views, .app.present .hint { display: none; }
@@ -257,7 +262,7 @@ button { cursor: pointer; }
       </div>
     </div>
     <button class="btn" id="openBtn" type="button" title="Open a deck from a file or URL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open</button>
-    <button class="btn icon" id="downloadBtn" type="button" aria-label="Download deck.json" title="Download deck.json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button>
+    <span class="split"><button class="btn icon" id="downloadBtn" type="button" aria-label="Download deck.json" title="Download deck.json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button><button class="btn" id="saveAsBtn" type="button" aria-label="Save as…" title="Save as…"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button></span>
     <div class="spacer"></div>
     <span class="status" id="status" role="status">Starting…</span>
     <button class="btn primary" id="present" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Present</button>
@@ -276,7 +281,10 @@ button { cursor: pointer; }
       <button class="btn icon" id="next" type="button" aria-label="Next view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
     <nav class="pstrip" id="pstrip" aria-label="Views" hidden></nav>
-    <button class="btn exit" id="exit" type="button" hidden>Exit · Esc</button>
+    <div class="ptop" id="ptop" hidden>
+      <button class="btn" id="share" type="button" title="Copy a link to this slide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg><span id="shareTxt">Share</span></button>
+      <button class="btn" id="exit" type="button">Exit · Esc</button>
+    </div>
   </main>
 
   <aside class="insp" id="insp" aria-label="Inspector">
@@ -322,6 +330,7 @@ button { cursor: pointer; }
         <div class="field"><label for="eTagIn">Tags</label><div class="tags" id="eTags"></div><input type="text" id="eTagIn" list="tagList" maxlength="24" placeholder="Add a tag and press Enter" autocomplete="off"></div>
         <div class="field"><span class="lbl" id="eIconLbl">Icon</span><div class="icons" id="eIcons" role="group" aria-labelledby="eIconLbl"></div></div>
         <div class="field"><span class="lbl" id="eHueLbl">Chip colour</span><div class="swatches" id="eHues" role="group" aria-labelledby="eHueLbl"></div></div>
+        <div class="field"><span class="lbl" id="eTextLbl">Label style</span><div class="swatches" id="eText" role="group" aria-labelledby="eTextLbl"></div></div>
         <div class="field">
           <span class="lbl">Image</span>
           <div class="actions">
@@ -392,7 +401,7 @@ button { cursor: pointer; }
       <div class="mbody" style="display:flex;flex-direction:column;gap:16px">
         <div class="drop" id="openDrop">
           <span>Drop a deck .json file here, or</span>
-          <label class="btn" for="openFile">Choose file…</label>
+          <label class="btn" for="openFile" id="openFileLbl">Choose file…</label>
           <input type="file" id="openFile" accept=".json,application/json" hidden>
         </div>
         <div class="field">
@@ -782,6 +791,11 @@ function drawOverlay(ctx, rt, scene, ui) {
     }
   }
 
+  const drawLabel = (e, y, w, lw) => {
+    ctx.fillStyle = e.textHue ? c.cells[e.textHue] : c.fg;
+    ctx.fillText(e.label, 0, y);
+    if (e.strike && e.label) ctx.fillRect(-w / 2, y - lw / 2, w, lw);
+  };
   for (const e of Object.values(rt.elements)) {
     if (e.s < 0.02) continue;
     const host = rt.bubbles[e.bubbleId];
@@ -795,7 +809,7 @@ function drawOverlay(ctx, rt, scene, ui) {
     const hasChip = e.imageId || e.icon;
     if (hasChip) {
       ctx.beginPath(); ctx.arc(0, -8, K.ELEM_R, 0, Math.PI * 2);
-      ctx.fillStyle = c.surface; ctx.fill();
+      ctx.fillStyle = e.fill ? hue : c.surface; ctx.fill();
       if (e.imageId) {
         const im = imageFor(e.imageId);
         if (im.complete && im.naturalWidth) {
@@ -807,7 +821,7 @@ function drawOverlay(ctx, rt, scene, ui) {
       } else {
         ctx.save();
         ctx.translate(-12 * 1.1, -8 - 12 * 1.1); ctx.scale(1.1, 1.1);
-        ctx.strokeStyle = c.fg; ctx.lineWidth = 1.7; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = e.fill ? c.surface : c.fg; ctx.lineWidth = 1.7; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.stroke(iconPaths[e.icon]);
         ctx.restore();
       }
@@ -818,7 +832,7 @@ function drawOverlay(ctx, rt, scene, ui) {
         const w = ctx.measureText(e.label).width;
         const f = w > 96 ? 96 / w : 1;
         ctx.save(); ctx.scale(f, f);
-        ctx.fillStyle = c.fg; ctx.fillText(e.label, 0, 32 / f);
+        drawLabel(e, 32 / f, w, 1.5);
         ctx.restore();
       }
     } else {
@@ -826,7 +840,7 @@ function drawOverlay(ctx, rt, scene, ui) {
       const w = ctx.measureText(e.label || ' ').width;
       const f = w > 92 ? 92 / w : 1;
       ctx.scale(f, f);
-      ctx.fillStyle = c.fg; ctx.fillText(e.label, 0, 0);
+      drawLabel(e, 0, w, 2);
     }
     ctx.restore();
   }
@@ -889,6 +903,7 @@ function drawOverlay(ctx, rt, scene, ui) {
 // ---------- app state (the only mutable holder) ----------
 const app = {
   scene: EMPTY_DECK.scene,
+  fileHandle: null, // FileSystemFileHandle the deck was opened from or saved as; Download writes back to it
   rt: createRuntime(EMPTY_DECK.scene, EMPTY_DECK.camera),
   cam: { ...EMPTY_DECK.camera },
   past: [], future: [],
@@ -1033,12 +1048,34 @@ function openDeck(deck) {
   setParams({ src: null, view: null, present: null });
   return true;
 }
-function downloadDeck() {
+// File System Access API (Chromium): opening a file through it keeps a handle, so Download writes back to that file.
+// Elsewhere Download falls back to a normal browser download of deck.json and Save as is hidden.
+const canSaveAs = 'showSaveFilePicker' in window;
+const JSON_TYPES = [{ description: 'Cell Deck', accept: { 'application/json': ['.json'] } }];
+function setFileHandle(h) {
+  app.fileHandle = h ?? null;
+  const t = app.fileHandle ? `Save to ${app.fileHandle.name}` : 'Download deck.json';
+  $('downloadBtn').title = t; $('downloadBtn').setAttribute('aria-label', t);
+}
+async function downloadDeck(saveAs = false) {
   if (app.mode === 'edit') saveWorking();
-  const url = URL.createObjectURL(new Blob([JSON.stringify(app.store.get(), null, 2) + '\n'], { type: 'application/json' }));
-  const a = Object.assign(document.createElement('a'), { href: url, download: 'deck.json' });
-  document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  const text = JSON.stringify(app.store.get(), null, 2) + '\n';
+  try {
+    if (saveAs && canSaveAs) setFileHandle(await showSaveFilePicker({ suggestedName: app.fileHandle?.name ?? 'deck.json', types: JSON_TYPES }));
+    if (app.fileHandle) {
+      if ((await app.fileHandle.requestPermission?.({ mode: 'readwrite' })) === 'denied') throw new Error(`No permission to write ${app.fileHandle.name}. Use Save as.`);
+      const w = await app.fileHandle.createWritable();
+      await w.write(text); await w.close();
+    } else {
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      const a = Object.assign(document.createElement('a'), { href: url, download: 'deck.json' });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+  } catch (err) {
+    if (err?.name !== 'AbortError') showError(new Error(`Could not save: ${err?.message ?? err}`));
+    return;
+  }
   app.cleanViews = JSON.stringify(app.store.get().views); app.unsaved = false; setStatus();
 }
 window.addEventListener('beforeunload', (ev) => { if (!app.persist && app.unsaved) ev.preventDefault(); });
@@ -1246,7 +1283,7 @@ function renderUI() {
   if (active && document.activeElement !== $('vName')) $('vName').value = active.name;
 
   const hudOn = app.mode === 'present';
-  $('hud').hidden = !hudOn; $('exit').hidden = !hudOn;
+  $('hud').hidden = !hudOn; $('ptop').hidden = !hudOn;
   if (hudOn) {
     const i = app.views.findIndex((v) => v.id === app.activeViewId);
     $('hudPos').textContent = app.views.length ? `${i + 1} / ${app.views.length} · ${active?.name ?? ''}` : 'No saved views';
@@ -1751,19 +1788,28 @@ $('stepClose').addEventListener('click', () => $('stepDlg').close());
 
 // ---------- open dialog ----------
 function openError(msg) { $('openErr').textContent = msg; $('openErr').hidden = !msg; }
-async function openFrom(load) {
+async function openFrom(load, handle = null) {
   openError('');
-  try { if (openDeck(await load())) $('openDlg').close(); }
+  try { if (openDeck(await load())) { setFileHandle(handle); $('openDlg').close(); } }
   catch (err) { openError(err?.message ?? String(err)); }
 }
-const openFileDeck = (file) => openFrom(async () => {
+const openFileDeck = (file, handle = null) => openFrom(async () => {
   if (!file) throw new Error('Drop or choose a .json deck file.');
   let json;
   try { json = JSON.parse(await file.text()); } catch { throw new Error(`"${file.name}" is not JSON.`); }
   return parseDeck(json, `"${file.name}"`);
+}, handle);
+// Choose file… goes through the picker where it exists, so the deck can be saved back to the same file.
+if ('showOpenFilePicker' in window) $('openFileLbl').addEventListener('click', async (ev) => {
+  ev.preventDefault();
+  let h;
+  try { [h] = await showOpenFilePicker({ types: JSON_TYPES }); } catch (err) { if (err?.name !== 'AbortError') openError(err.message); return; }
+  openFileDeck(await h.getFile(), h);
 });
+if (!canSaveAs) $('saveAsBtn').remove();
+else $('saveAsBtn').addEventListener('click', () => downloadDeck(true));
 $('openBtn').addEventListener('click', () => { openError(''); $('openDlg').showModal(); });
-$('downloadBtn').addEventListener('click', downloadDeck);
+$('downloadBtn').addEventListener('click', () => downloadDeck());
 $('openClose').addEventListener('click', () => $('openDlg').close());
 $('openFile').addEventListener('change', (ev) => { openFileDeck(ev.target.files[0]); ev.target.value = ''; });
 $('openForm').addEventListener('submit', async (ev) => {
@@ -1777,7 +1823,14 @@ $('openForm').addEventListener('submit', async (ev) => {
 const drop = $('openDrop');
 drop.addEventListener('dragover', (ev) => { ev.preventDefault(); drop.classList.add('on'); });
 drop.addEventListener('dragleave', () => drop.classList.remove('on'));
-drop.addEventListener('drop', (ev) => { ev.preventDefault(); drop.classList.remove('on'); openFileDeck(ev.dataTransfer?.files[0]); });
+drop.addEventListener('drop', async (ev) => {
+  ev.preventDefault(); drop.classList.remove('on');
+  const file = ev.dataTransfer?.files[0];
+  // The handle must be requested synchronously inside the drop event.
+  const pending = ev.dataTransfer?.items[0]?.getAsFileSystemHandle?.();
+  const h = await pending?.catch(() => null);
+  openFileDeck(file, h?.kind === 'file' ? h : null);
+});
 $('stepDlg').addEventListener('close', () => { stepEdit = null; $('stepBody').replaceChildren(); });
 $('mActAdd').addEventListener('click', () => openStepDialog(null));
 
@@ -1854,7 +1907,8 @@ function renderMessages() {
   // Element panel: chip colour.
   if (sel?.kind === 'element') {
     const e = indexOf(app.scene).elements.get(sel.id);
-    if (e) for (const b of $('eHues').children) b.setAttribute('aria-pressed', String((b.dataset.hue || null) === e.hue));
+    if (e) for (const b of $('eHues').children) b.setAttribute('aria-pressed', String(b.id === 'eFill' ? !!e.fill : (b.dataset.hue || null) === e.hue));
+    if (e) for (const b of $('eText').children) b.setAttribute('aria-pressed', String(b.id === 'eStrike' ? !!e.strike : (b.dataset.hue || null) === (e.textHue ?? null)));
   }
 
   // Message bar for the selected element (edit and present).
@@ -1885,11 +1939,33 @@ function renderMessages() {
   const auto = document.createElement('button');
   auto.type = 'button'; auto.className = 'swatch auto'; auto.dataset.hue = ''; auto.setAttribute('aria-label', 'Same as the bubble'); auto.title = 'Same as the bubble';
   auto.addEventListener('click', () => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { hue: null } }));
-  box.append(auto);
+  const fill = document.createElement('button');
+  fill.type = 'button'; fill.className = 'btn'; fill.id = 'eFill'; fill.textContent = 'Fill'; fill.title = 'Fill the chip with its colour';
+  fill.addEventListener('click', () => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { fill: !indexOf(app.scene).elements.get(app.selection.id)?.fill } }));
+  box.append(fill, auto);
   for (const h of HUES) {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'swatch'; b.style.setProperty('--c', `var(--cell-${h})`); b.dataset.hue = h; b.setAttribute('aria-label', h);
     b.addEventListener('click', () => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { hue: h } }));
+    box.append(b);
+  }
+})();
+
+(function buildLabelStyle() {
+  const box = $('eText');
+  const set = (patch) => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch });
+  const strike = document.createElement('button');
+  strike.type = 'button'; strike.className = 'btn icon'; strike.id = 'eStrike'; strike.title = 'Strikethrough'; strike.setAttribute('aria-label', 'Strikethrough');
+  strike.innerHTML = '<s aria-hidden="true">S</s>';
+  strike.addEventListener('click', () => set({ strike: !indexOf(app.scene).elements.get(app.selection.id)?.strike }));
+  const auto = document.createElement('button');
+  auto.type = 'button'; auto.className = 'swatch auto'; auto.dataset.hue = ''; auto.setAttribute('aria-label', 'Default text colour'); auto.title = 'Default text colour';
+  auto.addEventListener('click', () => set({ textHue: null }));
+  box.append(strike, auto);
+  for (const h of HUES) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'swatch'; b.style.setProperty('--c', `var(--cell-${h})`); b.dataset.hue = h; b.setAttribute('aria-label', `${h} text`); b.title = `${h} text`;
+    b.addEventListener('click', () => set({ textHue: h }));
     box.append(b);
   }
 })();
@@ -1964,6 +2040,15 @@ $('undo').addEventListener('click', undo);
 $('redo').addEventListener('click', redo);
 $('present').addEventListener('click', enterPresent);
 $('exit').addEventListener('click', exitPresent);
+// The address bar already tracks ?src, ?view and ?present, so the current URL is the share link.
+$('share').addEventListener('click', async () => {
+  const url = location.href;
+  // Without ?src the deck lives in this browser only, so the link reopens it here but not for anyone else.
+  const note = new URLSearchParams(location.search).has('src') ? 'Link copied' : 'Copied · this browser only';
+  try { await navigator.clipboard.writeText(url); } catch { prompt('Copy this link:', url); return; }
+  $('shareTxt').textContent = note;
+  clearTimeout($('share').t); $('share').t = setTimeout(() => { $('shareTxt').textContent = 'Share'; }, 2000);
+});
 $('prev').addEventListener('click', () => stepView(-1));
 $('next').addEventListener('click', () => stepView(1));
 $('vSave').addEventListener('click', saveView);
@@ -2233,6 +2318,8 @@ document.addEventListener('keydown', (ev) => {
   const typing = ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement;
   if (app.mode === 'present') {
     if (/^[1-9]$/.test(ev.key) && availableMessages()[Number(ev.key) - 1]) { ev.preventDefault(); const m = availableMessages()[Number(ev.key) - 1]; sendMessage(m.link.id, m.msg.id); }
+    // ponytail: single digit only, so views 10+ are reached by arrows or the strip; add a typed-number buffer if decks grow that long.
+    else if (/^[1-9]$/.test(ev.key) && app.views[Number(ev.key) - 1]) { ev.preventDefault(); goToView(app.views[Number(ev.key) - 1].id); }
     else if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(ev.key)) { ev.preventDefault(); stepView(1); }
     else if (['ArrowLeft', 'PageUp'].includes(ev.key)) { ev.preventDefault(); stepView(-1); }
     else if (ev.key === 'Escape') exitPresent();

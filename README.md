@@ -17,8 +17,9 @@ Bubble diagrams you pull apart, connect and present as a sequence of saved views
 
 ## Data
 
-A deck is one JSON file: `{ scene, camera, views: [{ id, name, scene, camera }] }`. See
-`DeckSchema` in `lib/core.js`. Edits are saved in your browser. Use **Download** to save
+A deck is one JSON file: `{ version, scene, camera, views: [{ id, name, scene, camera }] }`. See
+`DeckSchema` in `lib/core.js`. `version` is the format version (currently `1`; a file without one is
+read as `1`). A file with a newer version than the page knows is refused rather than misread. Edits are saved in your browser. Use **Download** to save
 `deck.json`, and **Open** to load one from a file (drag-and-drop or pick it) or from a URL.
 
 ## Links
