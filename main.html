@@ -1,0 +1,3349 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Cell Deck</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-screen stage app. Header bar / stage + inspector / views filmstrip. Present mode hides chrome. */
+:root {
+  --bg: #EDF0F3;
+  --surface: #FFFFFF;
+  --surface-2: #F5F7F9;
+  --fg: #17202A;
+  --muted: #566170;
+  --line: #D3D9E0;
+  --accent: #2550B8;
+  --accent-fg: #FFFFFF;
+  --danger: #B42335;
+  --grid: #17202A;
+  --grid-a: 0.13;
+  --dark: 0;
+  --cell-teal: #0E9F8E;
+  --cell-violet: #6D4DF2;
+  --cell-amber: #D98A0B;
+  --cell-rose: #DB3A62;
+  --cell-blue: #2672E8;
+  --cell-green: #2F9A41;
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1217; --surface: #151C24; --surface-2: #1B242E; --fg: #E6ECF2; --muted: #98A5B3; --line: #27323E;
+    --accent: #7FA5FF; --accent-fg: #0D1217; --danger: #FF7A8A; --grid: #E6ECF2; --grid-a: 0.09; --dark: 1;
+    --cell-teal: #2CD3BD; --cell-violet: #A48DFF; --cell-amber: #F4B23F; --cell-rose: #FF6E92; --cell-blue: #5E9DFF; --cell-green: #5FCB6C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1217; --surface: #151C24; --surface-2: #1B242E; --fg: #E6ECF2; --muted: #98A5B3; --line: #27323E;
+  --accent: #7FA5FF; --accent-fg: #0D1217; --danger: #FF7A8A; --grid: #E6ECF2; --grid-a: 0.09; --dark: 1;
+  --cell-teal: #2CD3BD; --cell-violet: #A48DFF; --cell-amber: #F4B23F; --cell-rose: #FF6E92; --cell-blue: #5E9DFF; --cell-green: #5FCB6C;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; overflow: hidden; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr) 300px; grid-template-areas: "bar bar" "stage insp" "views views"; }
+.bar { grid-area: bar; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); border-bottom: 1px solid var(--line); background: var(--surface); }
+.brand { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 700; font-size: 18px; letter-spacing: -0.01em; margin-right: 8px; }
+.brand svg { width: 26px; height: 22px; }
+.spacer { flex: 1 1 auto; }
+.status { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.02em; }
+.btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-weight: 500; }
+.btn:hover:not(:disabled) { background: var(--surface-2); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn svg { width: 16px; height: 16px; }
+.btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn.primary:hover { background: var(--fg); opacity: 0.88; }
+.btn.danger { color: var(--danger); }
+.btn.icon { padding: 0; width: 36px; justify-content: center; }
+
+.stage { grid-area: stage; position: relative; overflow: hidden; min-height: 0; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#ov { touch-action: none; }
+.hint { position: absolute; left: 16px; bottom: 12px; right: 16px; font-size: 12px; color: var(--muted); pointer-events: none; text-wrap: balance; }
+.pickbar { position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.banner { position: absolute; top: 12px; left: 16px; right: 16px; display: flex; gap: 10px; align-items: flex-start; background: var(--surface); border: 1px solid var(--danger); color: var(--fg); border-radius: 10px; padding: 10px 12px; font-size: 13px; z-index: 5; }
+.banner strong { color: var(--danger); }
+.banner p { margin: 0; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.banner button { border: 0; background: transparent; color: var(--muted); font-weight: 600; }
+
+.insp { grid-area: insp; border-left: 1px solid var(--line); background: var(--surface); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+.insp h2 { margin: 0; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label, .field .lbl { font-size: 12px; font-weight: 600; color: var(--muted); }
+.field input[type=text] { min-height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; background: var(--c); box-shadow: inset 0 0 0 3px var(--surface); }
+.swatch[aria-pressed="true"] { border-color: var(--fg); }
+.icons { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.icons button { aspect-ratio: 1; border-radius: 8px; border: 1px solid transparent; background: var(--surface-2); display: grid; place-items: center; padding: 0; min-height: 36px; }
+.icons button svg { width: 20px; height: 20px; }
+.icons button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--surface); }
+.icons button .none { font-size: 11px; color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.filter { position: relative; display: flex; align-items: center; min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); flex: 0 1 300px; min-width: 200px; }
+.filter:focus-within { border-color: var(--accent); }
+.filter .glass { width: 16px; height: 16px; margin-left: 10px; color: var(--muted); flex: none; }
+.filter input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 0 8px; min-height: 34px; outline: none; }
+.ficon { position: relative; display: grid; place-items: center; width: 36px; height: 34px; border: 0; border-left: 1px solid var(--line); background: transparent; border-radius: 0 8px 8px 0; color: var(--muted); }
+.ficon svg { width: 17px; height: 17px; }
+.ficon[aria-expanded="true"], .ficon.on { color: var(--accent); }
+.badge { position: absolute; top: -6px; right: -6px; box-shadow: 0 0 0 2px var(--surface); min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: var(--accent); color: var(--accent-fg); font-family: var(--font-mono); font-size: 10px; line-height: 15px; text-align: center; }
+.fpanel { position: absolute; top: calc(100% + 6px); left: 0; width: min(340px, calc(100vw - 32px)); max-height: 60vh; overflow-y: auto; z-index: 20; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 12px 32px rgb(0 0 0 / 0.14); }
+.fpanel h3 { margin: 4px 0 0; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.fhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+.link { border: 0; background: transparent; color: var(--accent); font-weight: 600; padding: 4px 0; }
+.fchips, .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.fchip { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); font-size: 13px; }
+.fchip svg { width: 15px; height: 15px; }
+.fchip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.fempty { font-size: 13px; color: var(--muted); }
+.tag { display: inline-flex; align-items: center; gap: 2px; min-height: 28px; padding-left: 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; }
+.tag button { border: 0; background: transparent; color: var(--muted); width: 28px; height: 26px; border-radius: 999px; font-size: 15px; line-height: 1; }
+.tag button:hover { color: var(--danger); }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--surface-2); }
+.seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; background: var(--surface-2); border-radius: 10px; padding: 3px; }
+.seg button { min-height: 34px; border: 1px solid transparent; border-radius: 8px; background: transparent; font-size: 13px; font-weight: 500; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); border-color: var(--line); color: var(--fg); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; min-height: 32px; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.range { display: flex; align-items: center; gap: 10px; }
+.range input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.bgrow { display: flex; align-items: center; gap: 10px; }
+.bgrow .range { flex: 1; min-width: 0; }
+#stColor { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); flex: none; }
+#stColor:disabled, #stOpacity:disabled { opacity: 0.45; }
+.pstrip { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: calc(max(16px, env(safe-area-inset-right, 0px)) + 110px); display: flex; gap: 6px; overflow-x: auto; padding: 2px; scrollbar-width: none; }
+.pstrip .chip { background: color-mix(in srgb, var(--surface) 88%, transparent); flex: none; opacity: 0.75; transition: opacity 0.2s; }
+.pstrip .chip:hover, .pstrip .chip[aria-current="true"], .pstrip .chip:focus-visible { opacity: 1; }
+.note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.hint2 { font-weight: 400; }
+.field select { min-height: 38px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); width: 100%; }
+.mlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mlist:empty { display: none; }
+.mlist li { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.mlist .mtxt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mlist .mtxt b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlist .mtxt span { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlist button { border: 0; background: transparent; border-radius: 6px; min-height: 30px; padding: 0 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.mlist button:hover { color: var(--fg); background: var(--surface); }
+.mlist button.armed { color: var(--danger); }
+.msged { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid var(--accent); border-radius: 12px; }
+.msged h3 { margin: 0; font-size: 14px; }
+.msged .sub { display: flex; flex-direction: column; gap: 12px; }
+.acts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; position: relative; }
+.acts > li { display: flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 2px; position: relative; }
+.acts > li.dragging { z-index: 2; box-shadow: 0 8px 20px rgb(0 0 0 / 0.16); border-color: var(--accent); }
+.acts > li.drop-before::before, .acts.drop-end > li:last-child::after { content: ""; position: absolute; left: 6px; right: 6px; height: 2px; border-radius: 2px; background: var(--accent); }
+.acts > li.drop-before::before { top: -4px; }
+.acts.drop-end > li:last-child::after { bottom: -4px; }
+.acts .grip { border: 0; background: transparent; color: var(--muted); width: 28px; min-height: 36px; border-radius: 8px; cursor: grab; touch-action: none; display: grid; place-items: center; flex: none; }
+.acts .grip:active { cursor: grabbing; }
+.acts .sopen { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 36px; border: 0; background: transparent; border-radius: 8px; padding: 0 8px; text-align: left; font-size: 13px; counter-increment: none; }
+.acts .sopen:hover { background: var(--surface-2); }
+.acts .sopen span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acts .sopen svg { color: var(--accent); flex: none; }
+.acts .sdel { border: 0; background: transparent; color: var(--muted); width: 32px; min-height: 36px; border-radius: 8px; flex: none; }
+.acts .sdel:hover:not(:disabled) { color: var(--danger); background: var(--surface-2); }
+.acts .sdel:disabled { opacity: 0.3; }
+.modal { width: min(520px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); padding: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--fg); box-shadow: 0 24px 64px rgb(0 0 0 / 0.25); }
+.modal::backdrop { background: rgb(10 14 20 / 0.45); }
+.modal form { display: flex; flex-direction: column; max-height: inherit; }
+.mhead { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.mhead h2 { margin: 0; font-family: var(--font-display); font-size: 18px; }
+.mbody { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.mfoot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.kinds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.kinds button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); font-weight: 500; font-size: 13px; text-align: left; }
+.kinds button svg { color: var(--accent); flex: none; }
+.kinds button[aria-pressed="true"] { border-color: var(--fg); background: var(--surface); box-shadow: inset 0 0 0 1px var(--fg); font-weight: 600; }
+.modal .seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.modal .icons { grid-template-columns: repeat(9, minmax(0, 1fr)); }
+.modal .sel .icons { grid-template-columns: repeat(9, minmax(0, 1fr)); }
+.fchip .from { font-weight: 400; color: inherit; opacity: 0.75; }
+@media (max-width: 520px) { .kinds { grid-template-columns: repeat(2, minmax(0, 1fr)); } .modal .icons, .modal .sel .icons { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.found { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.found b { color: var(--fg); font-weight: 600; }
+.row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sel { margin: 0; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.sel legend { font-size: 12px; font-weight: 600; color: var(--muted); padding: 0 4px; }
+.sel .icons { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.sel .icons button { min-height: 28px; }
+.sel .icons button svg { width: 16px; height: 16px; }
+.swatch.auto { background: var(--surface-2); box-shadow: none; border: 2px dashed var(--muted); }
+.swatch.auto[aria-pressed="true"] { border-style: solid; border-color: var(--fg); }
+.msgbar { position: absolute; top: 12px; left: 0; right: 0; margin-inline: auto; width: fit-content; max-width: calc(100% - 32px); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; padding: 6px; border-radius: 14px; background: color-mix(in srgb, var(--surface) 90%, transparent); border: 1px solid var(--line); box-shadow: 0 8px 24px rgb(0 0 0 / 0.10); z-index: 4; animation: msgIn 0.28s ease-out; }
+.msgbar .from { font-size: 12px; color: var(--muted); padding: 0 6px 0 4px; white-space: nowrap; }
+.msgbar .from b { color: var(--fg); }
+.mbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px 0 8px; border-radius: 999px; border: 1px solid var(--accent); background: var(--surface); color: var(--fg); font-weight: 600; font-size: 13px; white-space: nowrap; }
+.mbtn:hover { background: var(--accent); color: var(--accent-fg); }
+.mbtn .k { font-family: var(--font-mono); font-size: 10px; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--muted); }
+.mbtn .to { font-weight: 400; color: var(--muted); }
+.mbtn:hover .to, .mbtn:hover .k { color: inherit; background: transparent; }
+.app.present .msgbar { top: calc(max(12px, env(safe-area-inset-top, 0px)) + 52px); }
+@keyframes msgIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .msgbar { animation: none; } }
+.range output { font-family: var(--font-mono); font-size: 12px; color: var(--muted); width: 4.5ch; flex: none; text-align: right; }
+.tips { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.tips b { color: var(--fg); font-weight: 600; }
+.kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; color: var(--fg); }
+
+.views { grid-area: views; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); border-top: 1px solid var(--line); background: var(--surface); }
+.views .lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.chips { display: flex; gap: 6px; overflow-x: auto; flex: 1 1 320px; min-width: 0; padding: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px 0 6px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; }
+.chip .n { font-family: var(--font-mono); font-size: 11px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); }
+.chip[aria-current="true"] { border-color: var(--fg); background: var(--surface); font-weight: 600; }
+.chip[aria-current="true"] .n { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.empty { font-size: 13px; color: var(--muted); }
+.vedit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.vedit input { min-height: 36px; width: 160px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); }
+
+.hud { position: absolute; left: 50%; bottom: max(16px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px; opacity: 0.4; transition: opacity 0.2s; }
+.hud:hover, .hud:focus-within { opacity: 1; }
+.hud .pos { font-family: var(--font-mono); font-size: 12px; padding: 0 10px; white-space: nowrap; max-width: 50vw; overflow: hidden; text-overflow: ellipsis; }
+.hud .btn { border-radius: 999px; border: 0; }
+.exit { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); opacity: 0.4; }
+.exit:hover, .exit:focus-visible { opacity: 1; }
+
+.app.present { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage"; }
+.app.present .bar, .app.present .insp, .app.present .views, .app.present .hint { display: none; }
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; grid-template-areas: "bar" "stage" "insp" "views"; }
+  .insp { border-left: 0; border-top: 1px solid var(--line); max-height: 36vh; }
+  .status { order: 10; flex-basis: 100%; }
+  .hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .hud { transition: none; } }
+</style>
+
+<div class="app" id="app">
+  <header class="bar">
+    <div class="brand">
+      <svg viewBox="0 0 26 22" aria-hidden="true"><circle cx="9" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="19.5" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+      Cell Deck
+    </div>
+    <button class="btn" id="addBubble" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add bubble</button>
+    <button class="btn" id="connect" type="button" aria-pressed="false" title="Connect (C)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="6" r="2.5"/><path d="M7 16.5C10 14 12 10 16.8 7.5"/></svg>Connect</button>
+    <button class="btn icon" id="undo" type="button" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button class="btn icon" id="redo" type="button" aria-label="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+    <div class="filter" id="filterWrap" role="search">
+      <svg class="glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      <input type="search" id="fQuery" placeholder="Filter by name or tag" aria-label="Filter the stage by name or tag" autocomplete="off">
+      <button type="button" class="ficon" id="fToggle" aria-expanded="false" aria-controls="fPanel" aria-label="Filter by tags and icons" title="Filter by tags and icons">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg>
+        <span class="badge" id="fBadge" hidden></span>
+      </button>
+      <div class="fpanel" id="fPanel" hidden>
+        <div class="fhead"><span id="fCount"></span><button type="button" class="link" id="fClear">Clear filter</button></div>
+        <h3 id="fTagsLbl">Tags</h3>
+        <div class="fchips" id="fTags" role="group" aria-labelledby="fTagsLbl"></div>
+        <h3 id="fIconsLbl">Icons</h3>
+        <div class="fchips" id="fIcons" role="group" aria-labelledby="fIconsLbl"></div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <span class="status" id="status" role="status">Starting…</span>
+    <button class="btn primary" id="present" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Present</button>
+  </header>
+
+  <main class="stage" id="stage">
+    <canvas id="gl" aria-hidden="true"></canvas>
+    <canvas id="ov" role="img" aria-label="Bubble stage. Drag elements out of bubbles to split them off; drop onto a bubble to merge."></canvas>
+    <div class="msgbar" id="msgbar" role="toolbar" aria-label="Messages" hidden></div>
+    <div class="pickbar" id="pickbar" hidden>Click the bubble to orbit around · Esc to cancel</div>
+    <div class="banner" id="banner" role="alert" hidden><p><strong>Problem: </strong><span id="bannerText"></span></p><button type="button" id="bannerClose">Dismiss</button></div>
+    <p class="hint">Drag an element past the membrane to split it off · Drop it on another bubble to merge · Double-click empty space to add a bubble · Scroll to zoom, drag the background to pan</p>
+    <div class="hud" id="hud" hidden>
+      <button class="btn icon" id="prev" type="button" aria-label="Previous view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <span class="pos" id="hudPos"></span>
+      <button class="btn icon" id="next" type="button" aria-label="Next view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <nav class="pstrip" id="pstrip" aria-label="Views" hidden></nav>
+    <button class="btn exit" id="exit" type="button" hidden>Exit · Esc</button>
+  </main>
+
+  <aside class="insp" id="insp" aria-label="Inspector">
+    <section id="inspNone">
+      <h2>Background</h2>
+      <div class="field" style="margin:12px 0 20px">
+        <label class="check" for="stGrid"><input type="checkbox" id="stGrid">Dot grid</label>
+        <label class="check" for="stCustom"><input type="checkbox" id="stCustom">Custom colour</label>
+        <div class="bgrow">
+          <input type="color" id="stColor" aria-label="Background colour">
+          <div class="range"><input type="range" id="stOpacity" min="0" max="100" step="5" aria-label="Background colour strength"><output id="stOpacityOut" for="stOpacity"></output></div>
+        </div>
+      </div>
+      <h2>Stage</h2>
+      <ul class="tips" style="margin-top:12px">
+        <li><b>Pull apart.</b> Drag an icon out of its bubble. Past the membrane it pinches off into its own bubble.</li>
+        <li><b>Merge.</b> Drop an element or a whole bubble onto another bubble.</li>
+        <li><b>Add around.</b> Select a bubble, then Add around. New bubbles bud off and the ring re-spaces itself evenly.</li>
+        <li><b>Tags &amp; filter.</b> Tag bubbles and elements in this panel. Type in the filter bar (<span class="kbd">/</span>) or use the funnel to pick tags and icons; everything else fades back.</li>
+        <li><b>Connect.</b> Turn on Connect (<span class="kbd">C</span>), then drag from one element to another. Click a line to label and style it.</li>
+        <li><b>Views.</b> Save view snapshots the stage. In Present, <span class="kbd">→</span> morphs to the next one.</li>
+      </ul>
+    </section>
+    <section id="inspBubble" hidden>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <h2>Bubble</h2>
+        <div class="field"><label for="bTitle">Title</label><input type="text" id="bTitle" maxlength="40" placeholder="Untitled"></div>
+        <div class="field"><label for="bTagIn">Tags</label><div class="tags" id="bTags"></div><input type="text" id="bTagIn" list="tagList" maxlength="24" placeholder="Add a tag and press Enter" autocomplete="off"></div>
+        <div class="field"><span class="lbl" id="bHueLbl">Membrane colour</span><div class="swatches" id="bHues" role="group" aria-labelledby="bHueLbl"></div></div>
+        <div class="actions">
+          <button class="btn" type="button" id="bAddEl">Add element</button>
+          <button class="btn" type="button" id="bAround">Add around</button>
+          <button class="btn" type="button" id="bOrbit">Orbit…</button>
+          <button class="btn" type="button" id="bUnorbit">Leave orbit</button>
+          <button class="btn danger" type="button" id="bDel">Delete bubble</button>
+        </div>
+      </div>
+    </section>
+    <section id="inspElement" hidden>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <h2>Element</h2>
+        <div class="field"><label for="eLabel">Label</label><input type="text" id="eLabel" maxlength="60"></div>
+        <div class="field"><label for="eTagIn">Tags</label><div class="tags" id="eTags"></div><input type="text" id="eTagIn" list="tagList" maxlength="24" placeholder="Add a tag and press Enter" autocomplete="off"></div>
+        <div class="field"><span class="lbl" id="eIconLbl">Icon</span><div class="icons" id="eIcons" role="group" aria-labelledby="eIconLbl"></div></div>
+        <div class="field"><span class="lbl" id="eHueLbl">Chip colour</span><div class="swatches" id="eHues" role="group" aria-labelledby="eHueLbl"></div></div>
+        <div class="field">
+          <span class="lbl">Image</span>
+          <div class="actions">
+            <label class="btn" id="eUploadLbl" for="eUpload">Upload image</label>
+            <input type="file" id="eUpload" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden>
+            <button class="btn" type="button" id="eNoImg">Remove image</button>
+          </div>
+          <span class="status" id="eImgNote"></span>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button" id="eDup">Duplicate</button>
+          <button class="btn" type="button" id="ePull">Pull out</button>
+          <button class="btn danger" type="button" id="eDel">Delete element</button>
+        </div>
+      </div>
+    </section>
+    <datalist id="tagList"></datalist>
+    <section id="inspLink" hidden>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <h2>Connection</h2>
+        <div class="field"><label for="lLabel">Label</label><input type="text" id="lLabel" maxlength="60" placeholder="e.g. signs in"></div>
+        <div class="field"><label for="lTagIn">Tags</label><div class="tags" id="lTags"></div><input type="text" id="lTagIn" list="tagList" maxlength="24" placeholder="Add a tag and press Enter" autocomplete="off"></div>
+        <div class="field"><span class="lbl" id="lHeadLbl">Arrow</span>
+          <div class="seg" id="lHead" role="group" aria-labelledby="lHeadLbl">
+            <button type="button" data-v="none">None</button><button type="button" data-v="end">End</button><button type="button" data-v="both">Both</button>
+          </div>
+        </div>
+        <div class="field"><span class="lbl" id="lDashLbl">Line</span>
+          <div class="seg" id="lDash" role="group" aria-labelledby="lDashLbl">
+            <button type="button" data-v="solid">Solid</button><button type="button" data-v="dashed">Dashed</button><button type="button" data-v="flow">Flowing</button>
+          </div>
+        </div>
+        <div class="field"><span class="lbl">Elasticity</span>
+          <label class="check" for="lElastic"><input type="checkbox" id="lElastic">Rubber band</label>
+          <div class="range"><input type="range" id="lElasticity" min="0.05" max="1" step="0.05" aria-label="Elasticity amount"><output id="lElasticOut" for="lElasticity"></output></div>
+        </div>
+        <div class="field">
+          <span class="lbl" id="lMsgsLbl">Messages</span>
+          <p class="note">Messages travel from the start of the line to its end. Select the start element to send one.</p>
+          <ul class="mlist" id="lMsgs" aria-labelledby="lMsgsLbl"></ul>
+          <button class="btn" type="button" id="lMsgAdd">Add message</button>
+        </div>
+        <form class="msged" id="msgEd" hidden aria-labelledby="msgEdTitle">
+          <h3 id="msgEdTitle">New message</h3>
+          <div class="field"><label for="mLabel">Label</label><input type="text" id="mLabel" maxlength="40" placeholder="e.g. provision DB" autocomplete="off"></div>
+          <div class="field">
+            <span class="lbl" id="mActsLbl">When it arrives, in order</span>
+            <p class="note">Click a step to change it. Drag the handle to reorder.</p>
+            <ol class="acts" id="mActs" aria-labelledby="mActsLbl"></ol>
+            <button class="btn" type="button" id="mActAdd">Add step</button>
+          </div>
+          <div class="actions">
+            <button class="btn primary" type="submit">Save message</button>
+            <button class="btn" type="button" id="mCancel">Cancel</button>
+          </div>
+        </form>
+        <div class="actions">
+          <button class="btn" type="button" id="lReverse">Reverse</button>
+          <button class="btn danger" type="button" id="lDel">Delete connection</button>
+        </div>
+      </div>
+    </section>
+  </aside>
+
+  <dialog class="modal" id="stepDlg" aria-labelledby="stepDlgTitle">
+    <form id="stepForm">
+      <header class="mhead"><h2 id="stepDlgTitle">Step</h2><button type="button" class="btn icon" id="stepClose" aria-label="Close without saving"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+      <div class="mbody">
+        <div class="field"><span class="lbl" id="stepKindsLbl">What happens</span><div class="kinds" id="stepKinds" role="group" aria-labelledby="stepKindsLbl"></div></div>
+        <div id="stepBody"></div>
+      </div>
+      <footer class="mfoot"><button type="button" class="btn" id="stepCancel">Cancel</button><button type="submit" class="btn primary">Save step</button></footer>
+    </form>
+  </dialog>
+
+  <footer class="views">
+    <span class="lbl">Views</span>
+    <div class="chips" id="chips"></div>
+    <div class="vedit" id="vedit" hidden>
+      <input type="text" id="vName" maxlength="60" aria-label="View name">
+      <button class="btn icon" type="button" id="vLeft" aria-label="Move view earlier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <button class="btn icon" type="button" id="vRight" aria-label="Move view later"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="btn" type="button" id="vUpdate">Update from stage</button>
+      <button class="btn danger" type="button" id="vDel">Delete</button>
+    </div>
+    <button class="btn primary" type="button" id="vSave" title="Save view (Ctrl/Cmd+S updates the selected view)">Save view</button>
+  </footer>
+</div>
+
+<script>
+  // Visible failure if the module (or its CDN imports) never boots.
+  setTimeout(() => {
+    if (!window.__cellDeckBooted) {
+      const b = document.getElementById('banner');
+      document.getElementById('bannerText').textContent = 'The stage engine did not load. Check your connection and reload the page.';
+      b.hidden = false;
+    }
+  }, 9000);
+</script>
+
+<script type="module">
+import { Type } from 'https://cdn.jsdelivr.net/npm/@sinclair/typebox@0.32.35/+esm';
+import { Value } from 'https://cdn.jsdelivr.net/npm/@sinclair/typebox@0.32.35/value/+esm';
+
+// === CORE START ===
+// Pure core: schemas, scene reducers, physics. No DOM, no clock, no randomness.
+// Ids and timestamps are always passed in from the edge.
+
+export const HUES = ['teal', 'violet', 'amber', 'rose', 'blue', 'green'];
+
+// 24×24 stroke icons (Path2D / SVG path data).
+export const ICONS = {
+  ui: ['Interface', 'M3 5h18v14H3z M3 9h18 M6 7h.01 M9 7h.01'],
+  user: ['Identity', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M4 21c0-4 4-6 8-6s8 2 8 6'],
+  users: ['People', 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5 M16 4.5a3.5 3.5 0 0 1 0 6.5 M18 14.6c2.4.6 4 2.4 4 5.4'],
+  storage: ['Storage', 'M3 4h18v4H3z M5 8v12h14V8 M10 12h4'],
+  database: ['Database', 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6 M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3'],
+  doc: ['Document', 'M6 2h9l5 5v15H6z M14 2v6h6'],
+  api: ['API', 'M8 4c-2 0-3 1-3 3v2c0 1.5-1 3-2 3 1 0 2 1.5 2 3v2c0 2 1 3 3 3 M16 4c2 0 3 1 3 3v2c0 1.5 1 3 2 3-1 0-2 1.5-2 3v2c0 2-1 3-3 3'],
+  server: ['Server', 'M4 4h16v6H4z M4 14h16v6H4z M8 7h.01 M8 17h.01'],
+  cloud: ['Cloud', 'M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 8a4 4 0 0 1 0 10z'],
+  fn: ['Function', 'M5 20l7-11 M7 4h2c1.5 0 2.5 1 3 2.5L18 20h2'],
+  events: ['Events', 'M13 2L4 14h7l-1 8 9-12h-7z'],
+  chip: ['Cache', 'M6 6h12v12H6z M9 2v4 M15 2v4 M9 18v4 M15 18v4 M2 9h4 M2 15h4 M18 9h4 M18 15h4'],
+  key: ['Key', 'M8 11a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M10.8 12.2L20 3 M17 6l3 3 M15 8l2 2'],
+  lock: ['Lock', 'M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4'],
+  shield: ['Shield', 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z'],
+  phone: ['Phone', 'M7 2h10v20H7z M11 18h2'],
+  tablet: ['Tablet', 'M5 3h14v18H5z M11 18h2'],
+  laptop: ['Laptop', 'M5 5h14v10H5z M4 15h16l2 4H2z'],
+  desktop: ['Desktop', 'M3 4h18v12H3z M12 16v4 M8 20h8'],
+  office: ['Office', 'M5 21V4h10v17 M15 9h4v12 M3 21h18 M8 7h1 M11 7h1 M8 11h1 M11 11h1 M8 15h1 M11 15h1 M17 13h.01 M17 17h.01'],
+  store: ['Store', 'M4 9l1.5-5h13L20 9 M4 9a2.67 2.67 0 0 0 5.33 0a2.67 2.67 0 0 0 5.34 0a2.67 2.67 0 0 0 5.33 0 M5 11v9h14v-9 M10 20v-5h4v5'],
+  globe: ['Web', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M3 12h18 M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-5.5-3.5-9s1-6.5 3.5-9z'],
+  mail: ['Mail', 'M3 5h18v14H3z M3 6l9 7 9-7'],
+  chart: ['Analytics', 'M4 20V10 M10 20V4 M16 20v-7 M3 20h18'],
+  search: ['Search', 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M16 16l5 5'],
+  card: ['Payments', 'M3 6h18v12H3z M3 10h18 M7 15h4'],
+  bell: ['Notify', 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4z M10 21h4'],
+  gear: ['Config', 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1L7 17 M17 7l2.1-2.1'],
+  spark: ['AI', 'M12 3v4 M12 17v4 M3 12h4 M17 12h4 M12 8l1.5 2.5L16 12l-2.5 1.5L12 16l-1.5-2.5L8 12l2.5-1.5z'],
+};
+export const ICON_KEYS = Object.keys(ICONS);
+
+export const LIMITS = { bubbles: 40, elements: 80 };
+
+// ---------- schemas ----------
+const Id = (what, example) => Type.String({
+  pattern: '^[A-Za-z0-9_-]{1,40}$',
+  description: `Stable id of ${what}. Views are matched by id, so the same ${what} in two views morphs between them instead of popping in and out.`,
+  examples: [example],
+});
+
+export const TAG_PATTERN = '^[a-z0-9][a-z0-9 _-]{0,23}$';
+const Tags = (what) => Type.Array(Type.String({ pattern: TAG_PATTERN, description: 'One lowercase tag: letters, digits, spaces, - and _; at most 24 characters.' }), {
+  maxItems: 12, uniqueItems: true,
+  description: `Free-form tags on ${what}. The filter bar matches them as text and lists them as toggles, so tag by layer, owner or concern (e.g. "frontend", "data", "pii").`,
+  examples: [['data', 'pii']],
+});
+
+/** Turn typed text into a valid tag, or throw a UserError explaining why it cannot be one. */
+export function normalizeTag(raw) {
+  const t = String(raw).toLowerCase().trim().replace(/\s+/g, ' ');
+  if (!new RegExp(TAG_PATTERN).test(t)) throw new UserError('Tags are up to 24 characters of letters, digits, spaces, - and _, starting with a letter or digit.');
+  return t;
+}
+
+const HueLiteral = Type.Union(HUES.map((h) => Type.Literal(h)));
+const IconLiteral = Type.Union(ICON_KEYS.map((k) => Type.Literal(k)));
+
+export const ElementSchema = Type.Object({
+  id: Id('an element', 'el-ui'),
+  bubbleId: Type.String({ pattern: '^[A-Za-z0-9_-]{1,40}$', description: 'Id of the bubble this element sits in. When it differs between two views, the element travels from one bubble to the other during the morph.', examples: ['bb-app'] }),
+  label: Type.String({ maxLength: 60, description: 'Caption drawn under the icon or image. With no icon and no image the label alone is the element, drawn larger.', examples: ['Identity'] }),
+  icon: Type.Union([Type.Null(), Type.Union(ICON_KEYS.map((k) => Type.Literal(k)))], { description: 'Built-in line icon, or null for none. Ignored when imageId is set.', examples: ['user'] }),
+  imageId: Type.Union([Type.Null(), Type.String({ pattern: '^[0-9a-f]{32}$' })], { description: 'Uploaded image asset id (served at /_blob/<id>), or null. Takes precedence over the icon so a logo or screenshot can stand in for it.', examples: [null] }),
+  tags: Tags('this element'),
+  hue: Type.Union([Type.Null(), HueLiteral], { description: 'Colour of the element\'s chip ring, or null to follow its bubble\'s membrane colour. Lets an element added by a message stand out from its neighbours.', examples: [null, 'amber'] }),
+}, { additionalProperties: false, description: 'One draggable thing inside a bubble: an icon, an image or a text label.' });
+
+export const BubbleSchema = Type.Object({
+  id: Id('a bubble', 'bb-app'),
+  title: Type.String({ maxLength: 40, description: 'Name of the bubble. Drawn under the membrane when the bubble has elements, or in its centre when it is empty. Empty string for none.', examples: ['Web app'] }),
+  hue: Type.Union(HUES.map((h) => Type.Literal(h)), { description: 'Membrane colour, one of six theme-aware cell hues so it reads in light and dark mode.', examples: ['teal'] }),
+  x: Type.Number({ description: 'Resting position in world units (CSS px at zoom 1). Free bubbles spring back here; bubbles in orbit ignore it and sit on their ring.', examples: [0] }),
+  y: Type.Number({ description: 'Resting position in world units; +y is down.', examples: [0] }),
+  orbit: Type.Union([Type.Null(), Type.Object({
+    hubId: Type.String({ pattern: '^[A-Za-z0-9_-]{1,40}$', description: 'Bubble this one circles. All satellites of a hub are spaced evenly around it, so adding one pushes the rest round.', examples: ['bb-storage'] }),
+  }, { additionalProperties: false })], { description: 'Ring membership, or null for a free bubble.', examples: [null] }),
+  tags: Tags('this bubble; a tag here also matches every element inside it'),
+}, { additionalProperties: false, description: 'A cell: a gooey membrane holding zero or more elements.' });
+
+const TagList = (why) => Type.Array(Type.String({ pattern: TAG_PATTERN }), { maxItems: 12, uniqueItems: true, description: why });
+export const SelectorSchema = Type.Union([
+  Type.Object({ kind: Type.Literal('source') }, { additionalProperties: false, description: 'The element the message was sent from.' }),
+  Type.Object({ kind: Type.Literal('target') }, { additionalProperties: false, description: 'The element the message arrives at.' }),
+  Type.Object({
+    kind: Type.Literal('query'),
+    q: Type.String({ maxLength: 60, description: 'Text matched against labels, tags, icon names and bubble titles, as in the filter bar. Empty for no text condition.', examples: ['cache'] }),
+    tags: TagList('Elements with any of these tags (or inside a bubble with one). Empty for no tag condition.'),
+    icons: Type.Array(IconLiteral, { maxItems: ICON_KEYS.length, uniqueItems: true, description: 'Elements showing any of these icons. Empty for no icon condition.' }),
+  }, { additionalProperties: false, description: 'Every element on the stage matching all the conditions given, evaluated when the message arrives. A query with no conditions matches nothing.' }),
+], { description: 'Which elements one end of a new connection attaches to.' });
+
+export const ActionSchema = Type.Union([
+  Type.Object({
+    kind: Type.Literal('add'),
+    label: Type.String({ minLength: 1, maxLength: 60, description: 'Label of the element the message creates.', examples: ['Postgres'] }),
+    icon: Type.Union([Type.Null(), IconLiteral], { description: 'Icon of the new element, or null for a text-only element.', examples: ['database'] }),
+    tags: TagList('Tags given to the new element.'),
+    hue: Type.Union([Type.Null(), HueLiteral], { description: 'Chip colour of the new element, or null to follow its bubble.', examples: ['blue'] }),
+  }, { additionalProperties: false, description: 'Create a new element in the target\'s bubble; it buds out of the target.' }),
+  Type.Object({ kind: Type.Literal('split') }, { additionalProperties: false, description: 'Knock the target out of its bubble into a new bubble, carried on in the direction the message travelled.' }),
+  Type.Object({ kind: Type.Literal('clone') }, { additionalProperties: false, description: 'The target divides: a copy (label, icon, image, tags, colour; not its connections) appears beside it in the same bubble.' }),
+  Type.Object({ kind: Type.Literal('remove') }, { additionalProperties: false, description: 'Delete the target, and with it this connection and any others it had.' }),
+  Type.Object({
+    kind: Type.Literal('connect'),
+    from: SelectorSchema,
+    to: SelectorSchema,
+    label: Type.String({ maxLength: 60, description: 'Label for each new connection.', examples: ['reads'] }),
+    head: Type.Union([Type.Literal('none'), Type.Literal('end'), Type.Literal('both')], { description: 'Arrowheads on each new connection.', examples: ['end'] }),
+    dash: Type.Union([Type.Literal('solid'), Type.Literal('dashed'), Type.Literal('flow')], { description: 'Line style of each new connection.', examples: ['flow'] }),
+    elasticity: Type.Number({ minimum: 0, maximum: 1, description: 'Elasticity of each new connection: 0 is a rigid straight line; above 0 it behaves like a rubber band (sags, wobbles, tugs its ends together), looser as it rises.', examples: [0, 0.5] }),
+  }, { additionalProperties: false, description: 'Draw a connection from every "from" element to every "to" element, skipping an element to itself and any identical connection that already exists (same direction and label). Two elements can have several connections; parallel ones bow apart.' }),
+  Type.Object({
+    kind: Type.Literal('send'),
+    from: SelectorSchema,
+    message: Type.String({ minLength: 1, maxLength: 40, description: 'Label of the message to send. Every element the selector picks sends each of its messages with this label along the connection that carries it, so one message can set off the next.', examples: ['archive'] }),
+  }, { additionalProperties: false, description: 'Make other elements send one of their own messages: a chain reaction. Chains stop after a fixed number of hops so a loop cannot run forever.' }),
+], { description: 'One step of what happens when the message reaches the target.' });
+export const LIMIT_ACTIONS = 8;
+export const LIMIT_CHAIN = 12;
+
+export const MessageSchema = Type.Object({
+  id: Id('a message', 'msg-provision'),
+  label: Type.String({ minLength: 1, maxLength: 40, description: 'Shown on the send button and on the packet as it travels.', examples: ['provision DB'] }),
+  actions: Type.Array(ActionSchema, { minItems: 1, maxItems: LIMIT_ACTIONS, description: 'Steps applied in order when the packet arrives; each sees the stage as the previous step left it (e.g. split, then send a message from the target).' }),
+}, { additionalProperties: false, description: 'Something the start element can send along this connection. Sending animates a packet to the end element, then applies its actions.' });
+export const LIMIT_MESSAGES = 12;
+
+const ElementRef = (end, example) => Type.String({ pattern: '^[A-Za-z0-9_-]{1,40}$', description: `Id of the element at the ${end} of the line. The line follows that element wherever it goes, including into other bubbles; deleting the element deletes the line.`, examples: [example] });
+export const LinkSchema = Type.Object({
+  id: Id('a connection', 'ln-ui-identity'),
+  from: ElementRef('start', 'el-ui'),
+  to: ElementRef('end', 'el-identity'),
+  label: Type.String({ maxLength: 60, description: 'Text drawn on a pill at the middle of the line. Empty string for none.', examples: ['signs in'] }),
+  head: Type.Union([Type.Literal('none'), Type.Literal('end'), Type.Literal('both')], { description: 'Arrowheads: none (a plain association), end (from → to, a call or data flow), both (two-way).', examples: ['end'] }),
+  dash: Type.Union([Type.Literal('solid'), Type.Literal('dashed'), Type.Literal('flow')], { description: 'solid; dashed (weak or optional dependency); flow (dashes that march from → to, for traffic or data moving now).', examples: ['flow'] }),
+  tags: Tags('this connection; matching one in the filter lights the line and both of its ends'),
+  messages: Type.Array(MessageSchema, { maxItems: LIMIT_MESSAGES, description: 'Messages the start element can send along this line, in button order.' }),
+  elasticity: Type.Number({ minimum: 0, maximum: 1, description: '0 is a rigid straight line. Above 0 the line acts like a rubber band: it sags, lags and wobbles when its ends move, and tugs its two elements slightly toward each other. Higher is looser.', examples: [0, 0.5] }),
+}, { additionalProperties: false, description: 'A line between two elements.' });
+export const LIMIT_LINKS = 120;
+
+export const StageSchema = Type.Object({
+  grid: Type.Boolean({ description: 'Show the dot grid. Turn it off for a clean backdrop when presenting or taking screenshots.', examples: [true] }),
+  color: Type.Union([Type.Null(), Type.String({ pattern: '^#[0-9a-f]{6}$' })], { description: 'Custom backdrop colour as #rrggbb, or null to use the light/dark theme background.', examples: [null, '#101828'] }),
+  opacity: Type.Number({ minimum: 0, maximum: 1, description: 'How strongly the custom colour covers the theme background: 0 shows the theme background, 1 the colour at full strength. Ignored when color is null.', examples: [1] }),
+}, { additionalProperties: false, description: 'Backdrop behind the bubbles. Saved with each view, so a talk can change backdrop between slides.' });
+export const DEFAULT_STAGE = Object.freeze({ grid: true, color: null, opacity: 1 });
+
+/** What the backdrop is easing toward: custom colour and its strength (0 = theme background), and grid visibility. */
+export function stageTarget(stage) {
+  return stage.color === null ? { rgb: [0, 0, 0], a: 0, grid: stage.grid ? 1 : 0 } : { rgb: hexRgb(stage.color), a: stage.opacity, grid: stage.grid ? 1 : 0 };
+}
+/** Pure #rrggbb → [r, g, b] in 0..1; throws on anything else. */
+export function hexRgb(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) throw new Error(`bug: not a #rrggbb colour: "${hex}"`);
+  const n = parseInt(m[1], 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+
+export const SceneSchema = Type.Object({
+  stage: StageSchema,
+  bubbles: Type.Array(BubbleSchema, { maxItems: LIMITS.bubbles, description: 'Bubbles in draw order (later on top).' }),
+  elements: Type.Array(ElementSchema, { maxItems: LIMITS.elements, description: 'Elements; their order within a bubble sets their slot order.' }),
+  links: Type.Array(LinkSchema, { maxItems: LIMIT_LINKS, description: 'Connections between elements, drawn under the elements and over the membranes.' }),
+}, { additionalProperties: false, description: 'Everything on the stage that a view captures, apart from the camera.' });
+
+/**
+ * Explicit format migrations for scenes saved by earlier versions of the page:
+ *  v2 → v3: connections added (`links`).
+ *  v3 → v4: tags added on bubbles, elements and connections (`tags`).
+ *  v4 → v5: backdrop settings added (`stage`), defaulting to the grid on the theme background as before.
+ *  v5 → v6: messages on connections (`messages`) and an optional own colour on elements (`hue`, null = follow the bubble).
+ *  v6 → v7: connect steps in messages gain `elasticity` for the lines they draw (0 = rigid, as before).
+ * Only those exact absences are filled in; anything else passes through untouched for the schema to judge.
+ */
+export function migrateScene(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const addKey = (key, value) => (xs) => (Array.isArray(xs) ? xs.map((x) => (x && typeof x === 'object' && !(key in x) ? { ...x, [key]: value } : x)) : xs);
+  const addTags = addKey('tags', []);
+  const connectElastic = (l) => (l && typeof l === 'object' && Array.isArray(l.messages)
+    ? { ...l, messages: l.messages.map((m) => (m && Array.isArray(m.actions) ? { ...m, actions: m.actions.map((a) => (a && a.kind === 'connect' && !('elasticity' in a) ? { ...a, elasticity: 0 } : a)) } : m)) }
+    : l);
+  const links = 'links' in raw ? addKey('messages', [])(addTags(raw.links)).map(connectElastic) : [];
+  return { ...raw, stage: 'stage' in raw ? raw.stage : { ...DEFAULT_STAGE }, links, bubbles: addTags(raw.bubbles), elements: addKey('hue', null)(addTags(raw.elements)) };
+}
+
+// ---------- filter ----------
+export const EMPTY_FILTER = Object.freeze({ q: '', tags: Object.freeze([]), icons: Object.freeze([]) });
+export const filterActive = (f) => f.q.trim() !== '' || f.tags.length > 0 || f.icons.length > 0;
+
+/** Which elements and bubbles a filter keeps lit; null when no filter is active. Text matches labels, titles, tags and icon names; tag and icon toggles are OR within a group and AND across groups. */
+export function filterMatch(scene, f) {
+  if (!filterActive(f)) return null;
+  const ix = indexOf(scene);
+  const q = f.q.trim().toLowerCase();
+  const T = new Set(f.tags), I = new Set(f.icons);
+  const text = (xs) => !q || xs.some((x) => x.toLowerCase().includes(q));
+  const elements = new Set(), bubbles = new Set();
+  for (const e of scene.elements) {
+    const b = ix.bubbles.get(e.bubbleId);
+    const okQ = text([e.label, ...e.tags, ...(e.icon ? [e.icon, ICONS[e.icon][0]] : []), b.title, ...b.tags]);
+    const okT = !T.size || [...e.tags, ...b.tags].some((t) => T.has(t));
+    const okI = !I.size || (e.icon !== null && I.has(e.icon));
+    if (okQ && okT && okI) { elements.add(e.id); bubbles.add(b.id); }
+  }
+  if (!I.size) {
+    for (const b of scene.bubbles) if (text([b.title, ...b.tags]) && (!T.size || b.tags.some((t) => T.has(t)))) bubbles.add(b.id);
+  }
+  // A connection is lit when both of its ends are, or when it matches on its own label/tags
+  // (then its two ends light up with it, so the matched relationship reads in context).
+  const links = new Set();
+  for (const l of scene.links) {
+    if (elements.has(l.from) && elements.has(l.to)) { links.add(l.id); continue; }
+    const self = !I.size && text([l.label, ...l.tags]) && (!T.size || l.tags.some((t) => T.has(t))) && (q !== '' || T.size > 0);
+    if (self) {
+      links.add(l.id);
+      for (const eid of [l.from, l.to]) { elements.add(eid); bubbles.add(ix.elements.get(eid).bubbleId); }
+    }
+  }
+  return { elements, bubbles, links };
+}
+/** Opacity for a body's filter highlight (1 = matched, 0 = filtered out but still faintly visible for context). */
+export const litAlpha = (lit) => 0.13 + 0.87 * lit;
+/**
+ * Explicit migration for the working-stage document. Saved scenes were briefly a separate feature and wrote an
+ * `openSceneId` key here; views replaced them, so that key is dropped. The scene itself goes through migrateScene.
+ */
+export function migrateWorking(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const { openSceneId: _retired, ...rest } = raw;
+  return { ...rest, scene: migrateScene(raw.scene) };
+}
+
+export const tagsInScene = (scene) => [...new Set([...scene.bubbles, ...scene.elements, ...scene.links].flatMap((x) => x.tags))].sort();
+export const iconsInScene = (scene) => ICON_KEYS.filter((k) => scene.elements.some((e) => e.icon === k));
+
+export const CameraSchema = Type.Object({
+  x: Type.Number({ description: 'World x at the centre of the stage.', examples: [0] }),
+  y: Type.Number({ description: 'World y at the centre of the stage.', examples: [0] }),
+  zoom: Type.Number({ minimum: 0.25, maximum: 3, description: 'Screen px per world unit. Views store it so a talk can zoom in on one ring.', examples: [1] }),
+}, { additionalProperties: false });
+
+export const ViewDocSchema = Type.Object({
+  name: Type.String({ maxLength: 60, description: 'Shown on the view chip and in the presenter HUD.', examples: ['Pulled apart'] }),
+  order: Type.Number({ description: 'Sort key; lower comes first. Reordering swaps two keys.', examples: [1] }),
+  scene: SceneSchema,
+  camera: CameraSchema,
+  updatedAt: Type.Number({ description: 'Epoch ms of the last save, set by the page.', examples: [1793702713000] }),
+}, { additionalProperties: false, description: 'One saved view (slide). Stored at views/<id>.' });
+
+export const WorkingDocSchema = Type.Object({
+  scene: SceneSchema,
+  camera: CameraSchema,
+  updatedAt: Type.Number({ description: 'Epoch ms of the last autosave.', examples: [1793702713000] }),
+}, { additionalProperties: false, description: 'The editor stage as last left. Stored at deck/working; restored on load.' });
+
+export function parseOrThrow(schema, value, what) {
+  if (Value.Check(schema, value)) return value;
+  const first = [...Value.Errors(schema, value)][0];
+  throw new Error(`${what} is malformed at ${first?.path || '/'}: ${first?.message ?? 'unknown error'}`);
+}
+
+export class UserError extends Error {}
+
+// ---------- layout ----------
+export const K = {
+  ELEM_R: 26,          // icon chip radius
+  ELEM_BALL: 40,       // metaball radius an element adds to its membrane
+  SLOT: 100,           // centre spacing between elements in a bubble
+  PAD: 58,             // membrane padding beyond the outermost slot
+  TITLE_ONLY_R: 64,
+  SINGLE_R: 70,
+  BLEND: 34,           // smooth-union radius inside one bubble
+  LANE: 46,           // sideways bow between parallel connections joining the same two elements
+  DETACH_GAP: 70,      // how far past the membrane an element pulls before it pinches off
+  BREAK_GAP: 18,       // gap at which a bud/merge bridge snaps
+  RING_GAP: 70,
+  DT: 1 / 120,
+};
+
+const layoutMemo = new Map();
+export function slotLayout(n) {
+  if (!Number.isInteger(n) || n < 0) throw new Error(`bug: slotLayout(${n})`);
+  const hit = layoutMemo.get(n);
+  if (hit) return hit;
+  let out;
+  if (n === 0) out = { offsets: [], R: K.TITLE_ONLY_R };
+  else if (n === 1) out = { offsets: [{ x: 0, y: 0 }], R: K.SINGLE_R };
+  else if (n <= 6) {
+    const rho = (K.SLOT / 2) / Math.sin(Math.PI / n);
+    const start = n === 2 ? Math.PI : -Math.PI / 2;
+    out = { offsets: Array.from({ length: n }, (_, i) => ({ x: rho * Math.cos(start + (i * 2 * Math.PI) / n), y: rho * Math.sin(start + (i * 2 * Math.PI) / n) })), R: rho + K.PAD };
+  } else {
+    const c = K.SLOT * 0.56;
+    out = { offsets: Array.from({ length: n }, (_, i) => ({ x: c * Math.sqrt(i + 0.5) * Math.cos(i * 2.39996), y: c * Math.sqrt(i + 0.5) * Math.sin(i * 2.39996) })), R: c * Math.sqrt(n - 0.5) + K.PAD };
+  }
+  Object.freeze(out);
+  layoutMemo.set(n, out);
+  return out;
+}
+
+const indexMemo = new WeakMap();
+export function indexOf(scene) {
+  const hit = indexMemo.get(scene);
+  if (hit) return hit;
+  const bubbles = new Map(scene.bubbles.map((b) => [b.id, b]));
+  const elements = new Map(scene.elements.map((e) => [e.id, e]));
+  const members = new Map(scene.bubbles.map((b) => [b.id, []]));
+  for (const e of scene.elements) {
+    const list = members.get(e.bubbleId);
+    if (!list) throw new Error(`bug: element ${e.id} points at missing bubble ${e.bubbleId}`);
+    list.push(e.id);
+  }
+  const satellites = new Map();
+  for (const b of scene.bubbles) {
+    if (b.orbit) {
+      if (!bubbles.has(b.orbit.hubId)) throw new Error(`bug: bubble ${b.id} orbits missing hub ${b.orbit.hubId}`);
+      satellites.set(b.orbit.hubId, [...(satellites.get(b.orbit.hubId) ?? []), b.id]);
+    }
+  }
+  const links = new Map(scene.links.map((l) => [l.id, l]));
+  for (const l of scene.links) {
+    if (!elements.has(l.from) || !elements.has(l.to)) throw new Error(`bug: connection ${l.id} points at a missing element`);
+  }
+  const ix = { bubbles, elements, members, satellites, links };
+  indexMemo.set(scene, ix);
+  return ix;
+}
+
+export function bubbleRadius(scene, id) {
+  const m = indexOf(scene).members.get(id);
+  if (!m) throw new Error(`bug: bubbleRadius of missing bubble ${id}`);
+  return slotLayout(m.length).R;
+}
+
+export function slotOffset(scene, elementId) {
+  const ix = indexOf(scene);
+  const e = ix.elements.get(elementId);
+  if (!e) throw new Error(`bug: slotOffset of missing element ${elementId}`);
+  const m = ix.members.get(e.bubbleId);
+  return slotLayout(m.length).offsets[m.indexOf(elementId)];
+}
+
+export function ringRadius(scene, hubId) {
+  const sats = indexOf(scene).satellites.get(hubId) ?? [];
+  const maxSat = sats.reduce((a, id) => Math.max(a, bubbleRadius(scene, id)), K.SINGLE_R);
+  return bubbleRadius(scene, hubId) + maxSat + K.RING_GAP;
+}
+
+// ---------- scene reducers ----------
+export function checkScene(scene) {
+  const ids = new Set();
+  for (const x of [...scene.bubbles, ...scene.elements, ...scene.links]) {
+    if (ids.has(x.id)) throw new Error(`bug: duplicate id ${x.id}`);
+    ids.add(x.id);
+  }
+  const ix = indexOf(scene); // throws on dangling refs
+  for (const b of scene.bubbles) {
+    const seen = new Set([b.id]);
+    let cur = b.orbit?.hubId;
+    while (cur) {
+      if (seen.has(cur)) throw new UserError('That would make two bubbles orbit each other.');
+      seen.add(cur);
+      cur = ix.bubbles.get(cur).orbit?.hubId;
+    }
+  }
+  return scene;
+}
+
+const mapBubble = (scene, id, f) => {
+  if (!indexOf(scene).bubbles.has(id)) throw new Error(`bug: unknown bubble ${id}`);
+  return scene.bubbles.map((b) => (b.id === id ? f(b) : b));
+};
+const mapElement = (scene, id, f) => {
+  if (!indexOf(scene).elements.has(id)) throw new Error(`bug: unknown element ${id}`);
+  return scene.elements.map((e) => (e.id === id ? f(e) : e));
+};
+const dropEmptyUntitled = (scene, bubbleId) => {
+  const ix = indexOf(scene);
+  const b = ix.bubbles.get(bubbleId);
+  if (!b || b.title || ix.members.get(bubbleId).length) return scene;
+  return removeBubble(scene, bubbleId);
+};
+function removeBubble(scene, id) {
+  return pruneLinks({
+    ...scene,
+    bubbles: scene.bubbles.filter((b) => b.id !== id).map((b) => (b.orbit?.hubId === id ? { ...b, orbit: null } : b)),
+    elements: scene.elements.filter((e) => e.bubbleId !== id),
+    links: scene.links,
+  });
+}
+function pruneLinks(scene) {
+  const alive = new Set(scene.elements.map((e) => e.id));
+  return { ...scene, links: scene.links.filter((l) => alive.has(l.from) && alive.has(l.to)) };
+}
+const mapLink = (scene, id, f) => {
+  if (!indexOf(scene).links.has(id)) throw new Error(`bug: unknown connection ${id}`);
+  return scene.links.map((l) => (l.id === id ? f(l) : l));
+};
+
+export function applyCommand(scene, cmd) {
+  switch (cmd.type) {
+    case 'batch':
+      return cmd.cmds.reduce(applyCommand, scene);
+    case 'addBubble': {
+      if (scene.bubbles.length >= LIMITS.bubbles) throw new UserError(`A stage holds up to ${LIMITS.bubbles} bubbles.`);
+      if (scene.elements.length + cmd.elements.length > LIMITS.elements) throw new UserError(`A stage holds up to ${LIMITS.elements} elements.`);
+      return checkScene({
+        ...scene,
+        bubbles: [...scene.bubbles, cmd.bubble],
+        elements: [...scene.elements, ...cmd.elements.map((e) => ({ ...e, bubbleId: cmd.bubble.id }))],
+      });
+    }
+    case 'addElement': {
+      if (scene.elements.length >= LIMITS.elements) throw new UserError(`A stage holds up to ${LIMITS.elements} elements.`);
+      if (!indexOf(scene).bubbles.has(cmd.bubbleId)) throw new Error(`bug: unknown bubble ${cmd.bubbleId}`);
+      return checkScene({ ...scene, elements: [...scene.elements, { ...cmd.element, bubbleId: cmd.bubbleId }] });
+    }
+    case 'duplicateElement': {
+      if (scene.elements.length >= LIMITS.elements) throw new UserError(`A stage holds up to ${LIMITS.elements} elements.`);
+      const src = indexOf(scene).elements.get(cmd.id);
+      if (!src) throw new Error(`bug: unknown element ${cmd.id}`);
+      const at = scene.elements.indexOf(src) + 1;
+      return checkScene({ ...scene, elements: [...scene.elements.slice(0, at), { ...src, id: cmd.newId }, ...scene.elements.slice(at)] });
+    }
+    case 'updateElement':
+      return checkScene({ ...scene, elements: mapElement(scene, cmd.id, (e) => ({ ...e, ...cmd.patch })) });
+    case 'updateBubble':
+      return checkScene({ ...scene, bubbles: mapBubble(scene, cmd.id, (b) => ({ ...b, ...cmd.patch })) });
+    case 'deleteElement': {
+      const e = indexOf(scene).elements.get(cmd.id);
+      if (!e) throw new Error(`bug: unknown element ${cmd.id}`);
+      return checkScene(dropEmptyUntitled(pruneLinks({ ...scene, elements: scene.elements.filter((x) => x.id !== cmd.id) }), e.bubbleId));
+    }
+    case 'addLink': {
+      const ix = indexOf(scene);
+      if (scene.links.length >= LIMIT_LINKS) throw new UserError(`A stage holds up to ${LIMIT_LINKS} connections.`);
+      if (cmd.link.from === cmd.link.to) throw new UserError('Connect two different elements.');
+      if (!ix.elements.has(cmd.link.from) || !ix.elements.has(cmd.link.to)) throw new Error('bug: connection to a missing element');
+      if (scene.links.some((l) => l.from === cmd.link.from && l.to === cmd.link.to && l.label === cmd.link.label)) throw new UserError(cmd.link.label ? `Those two elements already have a “${cmd.link.label}” connection in that direction.` : 'Those two elements are already connected in that direction. Give the new connection a label to add another.');
+      return checkScene({ ...scene, links: [...scene.links, cmd.link] });
+    }
+    case 'updateLink':
+      return checkScene({ ...scene, links: mapLink(scene, cmd.id, (l) => ({ ...l, ...cmd.patch })) });
+    case 'deleteLink':
+      if (!indexOf(scene).links.has(cmd.id)) throw new Error(`bug: unknown connection ${cmd.id}`);
+      return checkScene({ ...scene, links: scene.links.filter((l) => l.id !== cmd.id) });
+    case 'deleteBubble':
+      if (!indexOf(scene).bubbles.has(cmd.id)) throw new Error(`bug: unknown bubble ${cmd.id}`);
+      return checkScene(removeBubble(scene, cmd.id));
+    case 'moveElement': {
+      const e = indexOf(scene).elements.get(cmd.id);
+      if (!e) throw new Error(`bug: unknown element ${cmd.id}`);
+      if (!indexOf(scene).bubbles.has(cmd.toBubbleId)) throw new Error(`bug: unknown bubble ${cmd.toBubbleId}`);
+      if (e.bubbleId === cmd.toBubbleId) return scene;
+      const moved = { ...scene, elements: [...scene.elements.filter((x) => x.id !== cmd.id), { ...e, bubbleId: cmd.toBubbleId }] };
+      return checkScene(dropEmptyUntitled(moved, e.bubbleId));
+    }
+    case 'detachElement': {
+      if (scene.bubbles.length >= LIMITS.bubbles) throw new UserError(`A stage holds up to ${LIMITS.bubbles} bubbles.`);
+      const withBubble = { ...scene, bubbles: [...scene.bubbles, { id: cmd.newBubbleId, title: '', hue: cmd.hue, x: cmd.x, y: cmd.y, orbit: null, tags: [] }] };
+      return checkScene({ ...withBubble, elements: mapElement(withBubble, cmd.id, (e) => ({ ...e, bubbleId: cmd.newBubbleId })) });
+    }
+    case 'mergeBubble': {
+      const ix = indexOf(scene);
+      const from = ix.bubbles.get(cmd.fromId);
+      if (!from || !ix.bubbles.has(cmd.intoId) || cmd.fromId === cmd.intoId) throw new Error(`bug: bad merge ${cmd.fromId} → ${cmd.intoId}`);
+      const titleEl = from.title ? [{ id: cmd.titleElementId, bubbleId: cmd.intoId, label: from.title, icon: null, imageId: null, tags: from.tags, hue: null }] : [];
+      if (scene.elements.length + titleEl.length > LIMITS.elements) throw new UserError(`A stage holds up to ${LIMITS.elements} elements.`);
+      const moved = {
+        ...scene,
+        elements: [...scene.elements.filter((e) => e.bubbleId !== cmd.fromId), ...scene.elements.filter((e) => e.bubbleId === cmd.fromId).map((e) => ({ ...e, bubbleId: cmd.intoId })), ...titleEl],
+      };
+      return checkScene(removeBubble(moved, cmd.fromId));
+    }
+    case 'setStage': {
+      const stage = { ...scene.stage, ...cmd.patch };
+      if (!Value.Check(StageSchema, stage)) throw new Error(`bug: bad stage patch ${JSON.stringify(cmd.patch)}`);
+      return { ...scene, stage };
+    }
+    case 'setHome':
+      return checkScene({ ...scene, bubbles: mapBubble(scene, cmd.id, (b) => ({ ...b, x: cmd.x, y: cmd.y })) });
+    case 'setOrbit': {
+      if (cmd.hubId === cmd.id) throw new UserError('A bubble cannot orbit itself.');
+      if (cmd.hubId !== null && !indexOf(scene).bubbles.has(cmd.hubId)) throw new Error(`bug: unknown hub ${cmd.hubId}`);
+      return checkScene({ ...scene, bubbles: mapBubble(scene, cmd.id, (b) => ({ ...b, orbit: cmd.hubId === null ? null : { hubId: cmd.hubId } })) });
+    }
+    default:
+      throw new Error(`bug: unknown command ${cmd.type}`);
+  }
+}
+
+// ---------- runtime (physics state) ----------
+export function hashPhase(id) {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return ((h >>> 0) / 4294967296) * Math.PI * 2;
+}
+
+const bubbleBody = (b, x, y, r) => ({ id: b.id, x, y, vx: 0, vy: 0, r, vr: 0, w2: 0, v2: 0, w3: 0, v3: 0, phase: hashPhase(b.id), dying: false, followId: null, hue: b.hue, title: b.title, lit: 1 });
+const elementBody = (e, x, y, s) => ({ id: e.id, x, y, vx: 0, vy: 0, s, vs: 0, dying: false, lit: 1, bubbleId: e.bubbleId, label: e.label, icon: e.icon, imageId: e.imageId, hue: e.hue });
+const kick = (b, amt) => ({ ...b, v2: b.v2 + amt, v3: b.v3 - amt * 0.7 });
+const linkBody = (l, elements, a) => {
+  const A = elements[l.from], B = elements[l.to];
+  if (!A || !B) throw new Error(`bug: connection ${l.id} has an end without a body`);
+  return { id: l.id, from: l.from, to: l.to, label: l.label, head: l.head, dash: l.dash, e: l.elasticity, cx: (A.x + B.x) / 2, cy: (A.y + B.y) / 2, vx: 0, vy: 0, a, lit: 1, dying: false };
+};
+
+export function createRuntime(scene, camera) {
+  const bubbles = {};
+  for (const b of scene.bubbles) bubbles[b.id] = bubbleBody(b, b.x, b.y, bubbleRadius(scene, b.id));
+  const t0 = { bubbles, elements: {}, bridges: [], camera: { ...camera } };
+  // Satellites start on their ring so a reload does not replay the bud animation.
+  const ot = orbitTargets(scene, t0);
+  for (const [id, p] of Object.entries(ot)) bubbles[id] = { ...bubbles[id], x: p.x, y: p.y };
+  const elements = {};
+  for (const e of scene.elements) {
+    const b = bubbles[e.bubbleId];
+    const o = slotOffset(scene, e.id);
+    elements[e.id] = elementBody(e, b.x + o.x, b.y + o.y, 1);
+  }
+  const links = Object.fromEntries(scene.links.map((l) => [l.id, linkBody(l, elements, 1)]));
+  return { ...t0, bubbles, elements, links, t: 0, stage: stageTarget(scene.stage) };
+}
+
+const centroid = (pts) => ({ x: pts.reduce((a, p) => a + p.x, 0) / pts.length, y: pts.reduce((a, p) => a + p.y, 0) / pts.length });
+const argmaxCount = (xs) => {
+  const c = new Map();
+  for (const x of xs) c.set(x, (c.get(x) ?? 0) + 1);
+  let best = null, n = 0;
+  for (const [k, v] of c) if (v > n) { best = k; n = v; }
+  return best;
+};
+
+/** Reconcile physics bodies with a new scene. Newborn bubbles bud from where their members are now; removed ones shrink toward where their members went. */
+export function syncRuntime(rt, prev, next, hints = { spawnFrom: {} }) {
+  const bubbles = { ...rt.bubbles };
+  const elements = { ...rt.elements };
+  const bridges = [...rt.bridges];
+  const nix = indexOf(next);
+  const living = (id) => bubbles[id] && !bubbles[id].dying;
+
+  // 1. bubbles that are new (or revived ghosts)
+  const spawnAt = {};
+  for (const b of next.bubbles) {
+    if (living(b.id)) { bubbles[b.id] = { ...bubbles[b.id], hue: b.hue, title: b.title }; continue; }
+    if (bubbles[b.id]?.dying) { bubbles[b.id] = { ...bubbles[b.id], dying: false, followId: null, hue: b.hue, title: b.title }; continue; }
+    const present = nix.members.get(b.id).filter((eid) => elements[eid] && !elements[eid].dying);
+    let pos, parent = null, r0;
+    if (present.length) {
+      pos = centroid(present.map((eid) => elements[eid]));
+      parent = argmaxCount(present.map((eid) => elements[eid].bubbleId).filter(living));
+      r0 = K.ELEM_BALL;
+    } else if (b.orbit && living(b.orbit.hubId)) {
+      const h = bubbles[b.orbit.hubId];
+      pos = { x: h.x + (b.x - h.x) * 0.3, y: h.y + (b.y - h.y) * 0.3 };
+      parent = b.orbit.hubId;
+      r0 = 10;
+    } else {
+      pos = { x: b.x, y: b.y };
+      r0 = 4;
+    }
+    bubbles[b.id] = kick(bubbleBody(b, pos.x, pos.y, r0), 0.6);
+    spawnAt[b.id] = pos;
+    if (parent) {
+      bridges.push({ a: parent, b: b.id, k: K.BLEND, broken: false });
+      bubbles[parent] = kick(bubbles[parent], 0.9);
+    }
+  }
+
+  // 2. bubbles that are gone become shrinking ghosts
+  for (const [id, body] of Object.entries(bubbles)) {
+    if (body.dying || nix.bubbles.has(id)) continue;
+    const dests = Object.values(elements).filter((e) => e.bubbleId === id && !e.dying && nix.elements.has(e.id)).map((e) => nix.elements.get(e.id).bubbleId);
+    const follow = argmaxCount(dests);
+    bubbles[id] = { ...body, dying: true, followId: follow };
+    if (follow) {
+      bridges.push({ a: follow, b: id, k: K.BLEND, broken: false });
+      bubbles[follow] = kick(bubbles[follow], 0.9);
+    }
+  }
+
+  // 3. elements
+  for (const e of next.elements) {
+    const cur = elements[e.id];
+    const srcId = hints.spawnFrom[e.id];
+    if (!cur && srcId) {
+      const src = elements[srcId];
+      if (!src) throw new Error(`bug: duplicate source ${srcId} has no body`);
+      elements[e.id] = { ...elementBody(e, src.x + 1, src.y + 1, 0.55), vx: 140, vy: -60 };
+      elements[srcId] = { ...src, vx: src.vx - 140, vy: src.vy + 60 };
+      if (living(e.bubbleId)) bubbles[e.bubbleId] = kick(bubbles[e.bubbleId], 0.8);
+      continue;
+    }
+    if (!cur || cur.dying) {
+      const bp = spawnAt[e.bubbleId] ?? bubbles[e.bubbleId];
+      const o = slotOffset(next, e.id);
+      elements[e.id] = { ...elementBody(e, bp.x + o.x, bp.y + o.y, 0), ...(cur ? { x: cur.x, y: cur.y, s: cur.s } : {}) };
+      continue;
+    }
+    if (cur.bubbleId !== e.bubbleId && living(e.bubbleId)) bubbles[e.bubbleId] = kick(bubbles[e.bubbleId], 0.7);
+    elements[e.id] = { ...cur, bubbleId: e.bubbleId, label: e.label, icon: e.icon, imageId: e.imageId, hue: e.hue };
+  }
+  for (const [id, body] of Object.entries(elements)) {
+    if (!body.dying && !nix.elements.has(id)) elements[id] = { ...body, dying: true };
+  }
+
+  // 4. connections fade in and out
+  const links = { ...rt.links };
+  for (const l of next.links) {
+    const cur = links[l.id];
+    const meta = { from: l.from, to: l.to, label: l.label, head: l.head, dash: l.dash, e: l.elasticity };
+    links[l.id] = cur ? { ...cur, ...meta, dying: false } : linkBody(l, elements, 0);
+  }
+  for (const [id, body] of Object.entries(links)) {
+    if (!body.dying && !nix.links.has(id)) links[id] = { ...body, dying: true };
+  }
+  return { ...rt, bubbles, elements, bridges, links };
+}
+
+/** Even angular spacing of each hub's satellites, keeping their current cyclic order. */
+export function orbitTargets(scene, rt) {
+  const ix = indexOf(scene);
+  const out = {};
+  for (const [hubId, sats] of ix.satellites) {
+    const hub = rt.bubbles[hubId];
+    if (!hub) continue;
+    const ring = ringRadius(scene, hubId);
+    const withAngle = sats.map((id) => {
+      const body = rt.bubbles[id];
+      const p = body ?? ix.bubbles.get(id);
+      return { id, th: Math.atan2(p.y - hub.y, p.x - hub.x) };
+    }).sort((a, b) => a.th - b.th || (a.id < b.id ? -1 : 1));
+    const n = withAngle.length;
+    const stepA = (Math.PI * 2) / n;
+    let sx = 0, sy = 0;
+    withAngle.forEach((s, i) => { sx += Math.cos(s.th - i * stepA); sy += Math.sin(s.th - i * stepA); });
+    const off = Math.atan2(sy, sx);
+    withAngle.forEach((s, i) => { out[s.id] = { x: hub.x + ring * Math.cos(off + i * stepA), y: hub.y + ring * Math.sin(off + i * stepA) }; });
+  }
+  return out;
+}
+
+/** Angle (radians) in the widest gap between a hub's satellites; where a new one should bud. */
+export function gapAngle(scene, rt, hubId) {
+  const hub = rt.bubbles[hubId];
+  if (!hub) throw new Error(`bug: gapAngle for missing hub ${hubId}`);
+  const sats = indexOf(scene).satellites.get(hubId) ?? [];
+  const ths = sats.map((id) => rt.bubbles[id]).filter(Boolean).map((b) => Math.atan2(b.y - hub.y, b.x - hub.x)).sort((a, b) => a - b);
+  if (ths.length === 0) return 0;
+  if (ths.length === 1) return ths[0] + Math.PI;
+  let best = 0, bestGap = -1;
+  ths.forEach((th, i) => {
+    const nxt = i === ths.length - 1 ? ths[0] + Math.PI * 2 : ths[i + 1];
+    if (nxt - th > bestGap) { bestGap = nxt - th; best = th + (nxt - th) / 2; }
+  });
+  return best;
+}
+
+/** Write current ring positions into the homes of orbiting bubbles so a saved view reproduces the layout. */
+export function freezeScene(scene, rt) {
+  return { ...scene, bubbles: scene.bubbles.map((b) => (b.orbit && rt.bubbles[b.id] && !rt.bubbles[b.id].dying ? { ...b, x: Math.round(rt.bubbles[b.id].x), y: Math.round(rt.bubbles[b.id].y) } : b)) };
+}
+
+export function detachGap(scene, rt, elementId, px, py) {
+  const e = rt.elements[elementId];
+  if (!e) throw new Error(`bug: detachGap for missing element ${elementId}`);
+  const b = rt.bubbles[e.bubbleId];
+  return Math.hypot(px - b.x, py - b.y) - bubbleRadius(scene, e.bubbleId);
+}
+
+const P = { PULL: 60, LEAN: 22, TUG: 900, KB: 40, CB: 6.5, KE: 160, CE: 11, KR: 180, CR: 10, KS: 220, CS: 16, W2: 15, W3: 20.7, CW: 3.2, EXC: 0.0006, REP: 30, TEN: 14, WMAX: 0.16 };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/** Lane of each connection among those joining the same two elements: 0 when alone, else spread ±0.5, ±1, … around the middle. */
+const laneMemo = new WeakMap();
+export function linkLanes(scene) {
+  const hit = laneMemo.get(scene);
+  if (hit) return hit;
+  const groups = new Map();
+  for (const l of scene.links) {
+    const k = l.from < l.to ? `${l.from}|${l.to}` : `${l.to}|${l.from}`;
+    groups.set(k, [...(groups.get(k) ?? []), l.id]);
+  }
+  const out = new Map();
+  for (const ids of groups.values()) ids.forEach((id, i) => out.set(id, i - (ids.length - 1) / 2));
+  laneMemo.set(scene, out);
+  return out;
+}
+
+/** Advance the simulation by dt seconds. Pure: same inputs, same output. */
+export function step(rt, scene, input, dt) {
+  const drag = input.drag;
+  const ix = indexOf(scene);
+  const ot = orbitTargets(scene, rt);
+  const ids = Object.keys(rt.bubbles);
+  const f = Object.fromEntries(ids.map((id) => [id, { x: 0, y: 0 }]));
+  const draggedBubble = drag?.kind === 'bubble' ? drag.id : null;
+  const bridged = new Set(rt.bridges.filter((b) => !b.broken).flatMap((b) => [`${b.a}|${b.b}`, `${b.b}|${b.a}`]));
+
+  for (let i = 0; i < ids.length; i++) {
+    const A = rt.bubbles[ids[i]];
+    if (A.dying || A.id === draggedBubble) continue;
+    for (let j = i + 1; j < ids.length; j++) {
+      const B = rt.bubbles[ids[j]];
+      if (B.dying || B.id === draggedBubble || bridged.has(`${A.id}|${B.id}`)) continue;
+      const dx = B.x - A.x, dy = B.y - A.y;
+      const d = Math.hypot(dx, dy) || 0.001;
+      const overlap = A.r + B.r + 16 - d;
+      if (overlap <= 0) continue;
+      const push = Math.min(overlap, 60) * P.REP;
+      f[A.id].x -= (dx / d) * push; f[A.id].y -= (dy / d) * push;
+      f[B.id].x += (dx / d) * push; f[B.id].y += (dy / d) * push;
+    }
+  }
+  // A grabbed connection pulls the bubbles at both ends toward the pointer once it is stretched past
+  // the distance each had when grabbed, and makes the end elements lean out of their bubbles.
+  const rope = drag?.kind === 'rope' && rt.links[drag.id] ? { id: drag.id, x: drag.x, y: drag.y, rest: drag.rest } : null;
+  const ropeTug = {};
+  if (rope) {
+    const l = rt.links[rope.id];
+    for (const eid of [l.from, l.to]) {
+      const e = rt.elements[eid];
+      if (!e || e.dying) continue;
+      const b = rt.bubbles[e.bubbleId];
+      if (!b || b.dying) continue;
+      const dx = rope.x - b.x, dy = rope.y - b.y, d = Math.hypot(dx, dy) || 1;
+      const rest = rope.rest[eid];
+      if (rest === undefined) throw new Error(`bug: no rest length for rope end ${eid}`);
+      const over = clamp(d - rest, 0, 500);
+      f[b.id].x += (dx / d) * over * P.PULL; f[b.id].y += (dy / d) * over * P.PULL;
+      const ex = rope.x - e.x, ey = rope.y - e.y, ed = Math.hypot(ex, ey) || 1;
+      const lean = Math.min(over, 120) * P.LEAN;
+      ropeTug[eid] = { x: (ex / ed) * lean, y: (ey / ed) * lean };
+    }
+  }
+  let tether = null;
+  if (drag?.kind === 'element' && drag.tether) {
+    const e = rt.elements[drag.id];
+    const b = rt.bubbles[e.bubbleId];
+    const dx = drag.x - b.x, dy = drag.y - b.y;
+    const d = Math.hypot(dx, dy) || 0.001;
+    const gap = d - bubbleRadius(scene, e.bubbleId);
+    if (gap > 0) {
+      const t = Math.min(gap, K.DETACH_GAP) * P.TEN;
+      f[b.id].x += (dx / d) * t; f[b.id].y += (dy / d) * t;
+    }
+    tether = { bubbleId: b.id, elementId: e.id, gap };
+  }
+
+  const bubbles = {};
+  for (const id of ids) {
+    const b = rt.bubbles[id];
+    let x, y, vx, vy;
+    if (id === draggedBubble) {
+      x = drag.x; y = drag.y;
+      vx = b.vx + ((x - b.x) / dt - b.vx) * 0.25;
+      vy = b.vy + ((y - b.y) / dt - b.vy) * 0.25;
+    } else {
+      let tx = b.x, ty = b.y;
+      if (b.dying) {
+        const fb = b.followId && rt.bubbles[b.followId];
+        if (fb) { tx = fb.x; ty = fb.y; }
+      } else {
+        const sb = ix.bubbles.get(id);
+        if (!sb) throw new Error(`bug: living body ${id} has no scene bubble`);
+        const o = ot[id];
+        tx = o ? o.x : sb.x; ty = o ? o.y : sb.y;
+      }
+      const ax = P.KB * (tx - b.x) - P.CB * b.vx + f[id].x;
+      const ay = P.KB * (ty - b.y) - P.CB * b.vy + f[id].y;
+      vx = b.vx + ax * dt; vy = b.vy + ay * dt;
+      x = b.x + vx * dt; y = b.y + vy * dt;
+    }
+    const tr = b.dying ? 0 : bubbleRadius(scene, id);
+    const vr = b.vr + (P.KR * (tr - b.r) - P.CR * b.vr) * dt;
+    const r = Math.max(0, b.r + vr * dt);
+    if (b.dying && r < 1.5) continue;
+    const dv = Math.hypot(vx - b.vx, vy - b.vy);
+    const exc = Math.min(dv * P.EXC, 0.5);
+    const v2 = b.v2 + (-P.W2 * P.W2 * b.w2 - P.CW * b.v2) * dt + exc;
+    const v3 = b.v3 + (-P.W3 * P.W3 * b.w3 - P.CW * b.v3) * dt - exc * 0.6;
+    const litT = !input.match || b.dying || input.match.bubbles.has(id) ? 1 : 0;
+    bubbles[id] = { ...b, lit: b.lit + (litT - b.lit) * (1 - Math.exp(-dt * 9)), x, y, vx, vy, r, vr, v2, v3, w2: clamp(b.w2 + v2 * dt, -P.WMAX, P.WMAX), w3: clamp(b.w3 + v3 * dt, -P.WMAX, P.WMAX) };
+  }
+
+  // Elastic connections tug their two elements toward each other.
+  const tug = {};
+  for (const l of Object.values(rt.links)) {
+    if (l.dying || l.e <= 0) continue;
+    const A = rt.elements[l.from], B = rt.elements[l.to];
+    if (!A || !B) continue;
+    const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 1;
+    const m = l.e * P.TUG;
+    tug[A.id] = { x: (tug[A.id]?.x ?? 0) + (dx / d) * m, y: (tug[A.id]?.y ?? 0) + (dy / d) * m };
+    tug[B.id] = { x: (tug[B.id]?.x ?? 0) - (dx / d) * m, y: (tug[B.id]?.y ?? 0) - (dy / d) * m };
+  }
+
+  const elements = {};
+  for (const [id, e] of Object.entries(rt.elements)) {
+    let x, y, vx, vy;
+    if (drag?.kind === 'element' && drag.id === id) {
+      x = drag.x; y = drag.y;
+      vx = e.vx + ((x - e.x) / dt - e.vx) * 0.25;
+      vy = e.vy + ((y - e.y) / dt - e.vy) * 0.25;
+    } else {
+      let tx = e.x, ty = e.y;
+      const host = bubbles[e.bubbleId];
+      if (!e.dying) {
+        if (!host) throw new Error(`bug: element ${id} lost its bubble ${e.bubbleId}`);
+        const o = slotOffset(scene, id);
+        tx = host.x + o.x; ty = host.y + o.y;
+      } else if (host) {
+        tx = host.x; ty = host.y;
+      }
+      const tg = e.dying ? null : tug[id];
+      const rg = e.dying ? null : ropeTug[id];
+      vx = e.vx + (P.KE * (tx - e.x) - P.CE * e.vx + (tg ? tg.x : 0) + (rg ? rg.x : 0)) * dt;
+      vy = e.vy + (P.KE * (ty - e.y) - P.CE * e.vy + (tg ? tg.y : 0) + (rg ? rg.y : 0)) * dt;
+      x = e.x + vx * dt; y = e.y + vy * dt;
+    }
+    const ts = e.dying ? 0 : 1;
+    const vs = e.vs + (P.KS * (ts - e.s) - P.CS * e.vs) * dt;
+    const s = Math.max(0, e.s + vs * dt);
+    if (e.dying && s < 0.03) continue;
+    const litT = !input.match || e.dying || input.match.elements.has(id) ? 1 : 0;
+    elements[id] = { ...e, lit: e.lit + (litT - e.lit) * (1 - Math.exp(-dt * 9)), x, y, vx, vy, s, vs };
+  }
+
+  const bridges = [];
+  for (const br of rt.bridges) {
+    const A = bubbles[br.a], B = bubbles[br.b];
+    if (!A || !B) continue;
+    const gap = Math.hypot(A.x - B.x, A.y - B.y) - A.r - B.r;
+    const broken = br.broken || gap > K.BREAK_GAP;
+    const k = br.k + ((broken ? 0 : K.BLEND) - br.k) * (1 - Math.exp(-dt * 14));
+    if (broken && k < 0.5) continue;
+    bridges.push({ ...br, k, broken });
+  }
+
+  const ct = input.cameraTarget;
+  const a = 1 - Math.exp(-dt * 5);
+  const c = rt.camera;
+  const camera = { x: c.x + (ct.x - c.x) * a, y: c.y + (ct.y - c.y) * a, zoom: c.zoom * Math.exp(Math.log(ct.zoom / c.zoom) * a) };
+
+  const lanes = linkLanes(scene);
+  const links = {};
+  for (const [id, l] of Object.entries(rt.links)) {
+    const A = elements[l.from], B = elements[l.to];
+    if (!A || !B) continue;
+    const a = l.a + ((l.dying ? 0 : 1) - l.a) * (1 - Math.exp(-dt * 10));
+    if (l.dying && a < 0.02) continue;
+    // Parallel connections between the same two elements bow apart, each in its own lane.
+    const laneN = lanes.get(id) ?? 0;
+    const [P, Q] = l.from < l.to ? [A, B] : [B, A];
+    const ux = Q.x - P.x, uy = Q.y - P.y, ul = Math.hypot(ux, uy) || 1;
+    const mx = (A.x + B.x) / 2 + (-uy / ul) * laneN * K.LANE, my = (A.y + B.y) / 2 + (ux / ul) * laneN * K.LANE;
+    const lit = l.lit + ((!input.match || l.dying || input.match.links.has(id) ? 1 : 0) - l.lit) * (1 - Math.exp(-dt * 9));
+    if (rope && rope.id === id) {
+      // Grabbed: the curve passes through the pointer (linkGeometry adds the chips' vertical offset back).
+      const chipOff = ((A.icon || A.imageId ? -8 : 0) + (B.icon || B.imageId ? -8 : 0)) / 2;
+      links[id] = { ...l, a, lit, cx: rope.x, cy: rope.y - chipOff, vx: (rope.x - l.cx) / dt * 0.2, vy: (rope.y - chipOff - l.cy) / dt * 0.2 };
+      continue;
+    }
+    if (l.e <= 0) { links[id] = { ...l, a, lit, cx: mx, cy: my, vx: 0, vy: 0 }; continue; }
+    const sag = l.e * Math.hypot(B.x - A.x, B.y - A.y) * 0.14;
+    const k = 420 * (1 - l.e) + 14 * l.e;
+    const c = 34 * (1 - l.e) + 2.4 * l.e;
+    const vx = l.vx + (k * (mx - l.cx) - c * l.vx) * dt;
+    const vy = l.vy + (k * (my + sag - l.cy) - c * l.vy) * dt;
+    links[id] = { ...l, a, lit, vx, vy, cx: l.cx + vx * dt, cy: l.cy + vy * dt };
+  }
+
+  const st = stageTarget(scene.stage);
+  const sa = 1 - Math.exp(-dt * 6);
+  const stage = {
+    // Hold the old colour while fading out, so a custom backdrop dissolves into the theme instead of flashing through black.
+    rgb: st.a > 0 ? rt.stage.rgb.map((v, i) => v + (st.rgb[i] - v) * sa) : rt.stage.rgb,
+    a: rt.stage.a + (st.a - rt.stage.a) * sa,
+    grid: rt.stage.grid + (st.grid - rt.stage.grid) * sa,
+  };
+
+  return { bubbles, elements, bridges, camera, tether, links, t: rt.t + dt, stage };
+}
+
+/** World-space polyline of a connection, trimmed at both chips, plus its label point and end tangents. Null when an end has no body. */
+export function linkGeometry(rt, l) {
+  const A = rt.elements[l.from], B = rt.elements[l.to];
+  if (!A || !B) return null;
+  const chipY = (e) => (e.icon || e.imageId ? -8 : 0);
+  const p0 = { x: A.x, y: A.y + chipY(A) }, p2 = { x: B.x, y: B.y + chipY(B) };
+  const c = { x: l.cx, y: l.cy + (chipY(A) + chipY(B)) / 2 };
+  const q = { x: 2 * c.x - (p0.x + p2.x) / 2, y: 2 * c.y - (p0.y + p2.y) / 2 };
+  const at = (t) => ({ x: (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * q.x + t * t * p2.x, y: (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * q.y + t * t * p2.y });
+  const N = 32;
+  const all = Array.from({ length: N + 1 }, (_, i) => at(i / N));
+  const ra = (K.ELEM_R + 6) * A.s, rb = (K.ELEM_R + 6) * B.s;
+  const pts = all.filter((p) => Math.hypot(p.x - p0.x, p.y - p0.y) > ra && Math.hypot(p.x - p2.x, p.y - p2.y) > rb);
+  if (pts.length < 2) return null;
+  return { pts, mid: at(0.5) };
+}
+
+/** Element ids a connect selector resolves to when the message lands. */
+export function resolveSelector(scene, sel, link) {
+  switch (sel.kind) {
+    case 'source': return [link.from];
+    case 'target': return [link.to];
+    case 'query': {
+      const f = { q: sel.q, tags: sel.tags, icons: sel.icons };
+      if (!filterActive(f)) return [];
+      // Connections are left out: in the filter a matching connection lights its ends, but a selector wants elements matching on their own.
+      const own = filterMatch({ ...scene, links: [] }, f);
+      return scene.elements.filter((e) => own.elements.has(e.id)).map((e) => e.id);
+    }
+    default: throw new Error(`bug: unknown selector kind ${sel.kind}`);
+  }
+}
+
+/** Short human summary of a message's effect, e.g. "Add “Postgres”". */
+export function describeAction(a, scene) {
+  const sel = (s) => (s.kind === 'source' ? 'source' : s.kind === 'target' ? 'target'
+    : [s.q && `“${s.q}”`, ...s.tags.map((t) => `#${t}`), ...s.icons.map((k) => ICONS[k][0])].filter(Boolean).join(' + ') || 'nothing');
+  switch (a.kind) {
+    case 'add': return `Add “${a.label}”`;
+    case 'split': return 'Split target out';
+    case 'clone': return 'Clone target';
+    case 'remove': return 'Remove target';
+    case 'connect': return `Connect ${sel(a.from)} → ${sel(a.to)}`;
+    case 'send': return `Send “${a.message}” from ${sel(a.from)}`;
+    default: throw new Error(`bug: unknown action ${a.kind}`);
+  }
+}
+export const describeMessage = (m, scene) => m.actions.map((a) => describeAction(a, scene)).join(', then ');
+
+/** Labels of the messages each of these elements can send, for the editor's "send" picker. */
+export function sendableMessages(scene, elementIds) {
+  const ix = indexOf(scene);
+  const out = new Map(); // label → [element labels]
+  for (const id of elementIds) {
+    if (!ix.elements.has(id)) continue;
+    for (const l of scene.links) if (l.from === id) for (const m of l.messages) {
+      out.set(m.label, [...new Set([...(out.get(m.label) ?? []), ix.elements.get(id).label || 'unnamed'])]);
+    }
+  }
+  return [...out.entries()].map(([label, senders]) => ({ label, senders })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/**
+ * What one action does, given the stage as earlier actions of the same message left it.
+ * Returns { cmd | null, hints, sends } or throws a UserError saying why it has nothing to do.
+ */
+function actionCommand(scene, rt, link, msg, a, seed) {
+  const ix = indexOf(scene);
+  const id = (n) => `${seed}-${n}`;
+  const none = { spawnFrom: {} };
+  const target = ix.elements.get(link.to);
+  const needTarget = () => { if (!target) throw new UserError(`“${msg.label}”: the target was removed by an earlier step, so “${describeAction(a, scene)}” was skipped.`); return target; };
+  switch (a.kind) {
+    case 'add': {
+      const t = needTarget();
+      if (scene.elements.length >= LIMITS.elements) throw new UserError(`“${msg.label}”: the stage already has ${LIMITS.elements} elements.`);
+      return { cmd: { type: 'addElement', bubbleId: t.bubbleId, element: { id: id(0), label: a.label, icon: a.icon, imageId: null, tags: a.tags, hue: a.hue } }, hints: { spawnFrom: { [id(0)]: t.id } }, sends: [] };
+    }
+    case 'clone': {
+      const t = needTarget();
+      return { cmd: { type: 'duplicateElement', id: t.id, newId: id(0) }, hints: { spawnFrom: { [id(0)]: t.id } }, sends: [] };
+    }
+    case 'remove':
+      return { cmd: { type: 'deleteElement', id: needTarget().id }, hints: none, sends: [] };
+    case 'split': {
+      const t = needTarget();
+      const b = ix.bubbles.get(t.bubbleId);
+      if (ix.members.get(b.id).length < 2 && !b.title) throw new UserError(`“${msg.label}”: ${t.label || 'the target'} is already in a bubble of its own.`);
+      const src = rt.elements[link.from], tgt = rt.elements[link.to], hb = rt.bubbles[b.id];
+      if (!tgt || !hb) throw new Error('bug: split target has no body');
+      const dx = src ? tgt.x - src.x : 1, dy = src ? tgt.y - src.y : 0, d = Math.hypot(dx, dy);
+      const u = d > 1 ? { x: dx / d, y: dy / d } : { x: 1, y: 0 };
+      const dist = bubbleRadius(scene, b.id) + K.SINGLE_R + 90;
+      return { cmd: { type: 'detachElement', id: t.id, newBubbleId: id(0), x: Math.round(hb.x + u.x * dist), y: Math.round(hb.y + u.y * dist), hue: HUES[scene.bubbles.length % HUES.length] }, hints: none, sends: [] };
+    }
+    case 'connect': {
+      const live = (ids) => ids.filter((x) => ix.elements.has(x));
+      const froms = live(resolveSelector(scene, a.from, link)), tos = live(resolveSelector(scene, a.to, link));
+      const key = (f, t) => `${f}|${t}|${a.label}`;
+      const have = new Set(scene.links.map((l) => `${l.from}|${l.to}|${l.label}`));
+      const pairs = [];
+      for (const f of froms) for (const t of tos) {
+        if (f === t || have.has(key(f, t))) continue;
+        have.add(key(f, t));
+        pairs.push([f, t]);
+      }
+      if (!pairs.length) throw new UserError(`“${msg.label}” found nothing new to connect (${describeAction(a, scene)}${a.label ? `, labelled “${a.label}”` : ''}): every pair already has that connection.${a.label ? '' : ' Give the new line a label in this step to add one alongside the existing line.'}`);
+      if (scene.links.length + pairs.length > LIMIT_LINKS) throw new UserError(`“${msg.label}” would make ${pairs.length} connections, more than the stage's limit of ${LIMIT_LINKS}.`);
+      return { cmd: { type: 'batch', cmds: pairs.map(([f, t], i) => ({ type: 'addLink', link: { id: id(i), from: f, to: t, label: a.label, head: a.head, dash: a.dash, elasticity: a.elasticity, tags: [], messages: [] } })) }, hints: none, sends: [] };
+    }
+    case 'send': {
+      const froms = new Set(resolveSelector(scene, a.from, link).filter((x) => ix.elements.has(x)));
+      const sends = scene.links.filter((l) => froms.has(l.from)).flatMap((l) => l.messages.filter((m) => m.label === a.message).map((m) => ({ linkId: l.id, messageId: m.id })));
+      if (!sends.length) throw new UserError(`“${msg.label}”: nothing could send “${a.message}” (${describeAction(a, scene)}).`);
+      return { cmd: null, hints: none, sends };
+    }
+    default:
+      throw new Error(`bug: unknown message action ${a.kind}`);
+  }
+}
+
+/**
+ * Everything a message does when it arrives: its actions applied in order, each on the stage the previous left.
+ * Pure: positions come from rt, new ids are derived from seed. Returns
+ * { cmd, hints, sends: [{ linkId, messageId }] (messages to launch next), notes: [why a step was skipped] };
+ * throws a UserError when no step had anything to do.
+ */
+export function messageCommand(scene, rt, linkId, messageId, seed) {
+  const link = indexOf(scene).links.get(linkId);
+  if (!link) throw new UserError('The connection was removed before the message arrived.');
+  const msg = link.messages.find((m) => m.id === messageId);
+  if (!msg) throw new UserError('The message was deleted before it arrived.');
+  let cur = scene;
+  const cmds = [], sends = [], notes = [];
+  const spawnFrom = {};
+  msg.actions.forEach((a, i) => {
+    try {
+      const r = actionCommand(cur, rt, link, msg, a, `${seed}${i}`);
+      if (r.cmd) { cur = applyCommand(cur, r.cmd); cmds.push(r.cmd); }
+      Object.assign(spawnFrom, r.hints.spawnFrom);
+      sends.push(...r.sends);
+    } catch (err) {
+      if (!(err instanceof UserError)) throw err;
+      notes.push(err.message);
+    }
+  });
+  if (!cmds.length && !sends.length) throw new UserError(notes.join(' '));
+  return { cmd: { type: 'batch', cmds }, hints: { spawnFrom }, sends, notes };
+}
+
+/** Point a fraction p (0..1) of the way along a polyline, by length. */
+export function pointAlong(pts, p) {
+  const segs = pts.slice(1).map((q, i) => Math.hypot(q.x - pts[i].x, q.y - pts[i].y));
+  const total = segs.reduce((x, y) => x + y, 0);
+  let want = clamp(p, 0, 1) * total;
+  for (let i = 0; i < segs.length; i++) {
+    if (want <= segs[i] || i === segs.length - 1) {
+      const t = segs[i] ? want / segs[i] : 0;
+      return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * t, y: pts[i].y + (pts[i + 1].y - pts[i].y) * t, total };
+    }
+    want -= segs[i];
+  }
+  throw new Error('bug: pointAlong on an empty polyline');
+}
+
+/** Topmost thing under a world point: an element chip first, then the smallest bubble containing it. */
+export function hitTest(rt, scene, wx, wy) {
+  const ix = indexOf(scene);
+  let best = null, bestD = Infinity;
+  for (const e of Object.values(rt.elements)) {
+    if (e.dying || !ix.elements.has(e.id)) continue;
+    const d = Math.hypot(wx - e.x, wy - e.y);
+    if (d < 36 && d < bestD) { best = { kind: 'element', id: e.id }; bestD = d; }
+  }
+  if (best) return best;
+  const tol = 9 / rt.camera.zoom;
+  for (const l of Object.values(rt.links)) {
+    if (l.dying || !ix.links.has(l.id)) continue;
+    const g = linkGeometry(rt, l);
+    if (!g) continue;
+    if (Math.hypot(wx - g.mid.x, wy - g.mid.y) < 18 / rt.camera.zoom) return { kind: 'link', id: l.id };
+    for (let i = 1; i < g.pts.length; i++) {
+      if (segDist(wx, wy, g.pts[i - 1], g.pts[i]) < tol) return { kind: 'link', id: l.id };
+    }
+  }
+  return bubbleAt(rt, scene, wx, wy, null);
+}
+function segDist(px, py, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const L = dx * dx + dy * dy || 1;
+  const t = clamp(((px - a.x) * dx + (py - a.y) * dy) / L, 0, 1);
+  return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
+}
+
+export function elementAt(rt, scene, wx, wy, excludeId) {
+  const ix = indexOf(scene);
+  let best = null, bestD = 36;
+  for (const e of Object.values(rt.elements)) {
+    if (e.dying || e.id === excludeId || !ix.elements.has(e.id)) continue;
+    const d = Math.hypot(wx - e.x, wy - e.y);
+    if (d < bestD) { best = e.id; bestD = d; }
+  }
+  return best;
+}
+
+export function bubbleAt(rt, scene, wx, wy, excludeId) {
+  const ix = indexOf(scene);
+  let best = null, bestR = Infinity;
+  for (const b of Object.values(rt.bubbles)) {
+    if (b.dying || b.id === excludeId || !ix.bubbles.has(b.id)) continue;
+    if (Math.hypot(wx - b.x, wy - b.y) < b.r && b.r < bestR) { best = { kind: 'bubble', id: b.id }; bestR = b.r; }
+  }
+  return best;
+}
+// === CORE END ===
+
+// ====================================================================
+// Edge: rendering, input, persistence, UI.
+// ====================================================================
+window.__cellDeckBooted = true;
+
+const $ = (id) => {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`bug: missing #${id}`);
+  return el;
+};
+const newId = (prefix) => `${prefix}-${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+
+const TEMPLATE = Object.freeze({
+  scene: {
+    bubbles: [{ id: 'bb-app', title: 'Web app', hue: 'teal', x: 0, y: 0, orbit: null, tags: [] }],
+    elements: [
+      { id: 'el-ui', bubbleId: 'bb-app', label: 'UI', icon: 'ui', imageId: null, tags: ['frontend'], hue: null },
+      { id: 'el-identity', bubbleId: 'bb-app', label: 'Identity', icon: 'user', imageId: null, tags: ['security'], hue: null },
+      { id: 'el-storage', bubbleId: 'bb-app', label: 'Storage', icon: 'storage', imageId: null, tags: ['data'], hue: null },
+    ],
+    links: [],
+    stage: { grid: true, color: null, opacity: 1 },
+  },
+  camera: { x: 0, y: 0, zoom: 1 },
+});
+
+// ---------- theme ----------
+function hexToRgb(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) throw new Error(`bug: theme token is not #rrggbb: "${hex}"`);
+  const n = parseInt(m[1], 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  const tok = (n) => cs.getPropertyValue(n).trim();
+  return {
+    bg: hexToRgb(tok('--bg')), grid: hexToRgb(tok('--grid')), gridA: parseFloat(tok('--grid-a')), dark: parseFloat(tok('--dark')),
+    css: { fg: tok('--fg'), muted: tok('--muted'), surface: tok('--surface'), accent: tok('--accent'), cells: Object.fromEntries(HUES.map((h) => [h, tok(`--cell-${h}`)])) },
+    cells: Object.fromEntries(HUES.map((h) => [h, hexToRgb(tok(`--cell-${h}`))])),
+  };
+}
+
+// ---------- WebGL membrane renderer ----------
+const MAXB = 256, MAXG = 96, MAXBR = 64, TEXW = 256, TEXH = 8;
+const VS = `#version 300 es
+void main(){ vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+const FS = `#version 300 es
+precision highp float; precision highp int;
+#define MAXG ${MAXG}
+uniform highp sampler2D uData; uniform int uNumGroups; uniform int uNumBridges;
+uniform vec2 uRes; uniform vec3 uBg; uniform vec4 uGrid; uniform vec3 uCam; uniform float uK; uniform float uDpr; uniform float uDark;
+out vec4 outColor;
+vec4 F(int x, int y) { return texelFetch(uData, ivec2(x, y), 0); }
+float smin(float a, float b, float k) { if (k < 0.01) return min(a, b); float h = max(k - abs(a - b), 0.0) / k; return min(a, b) - h * h * k * 0.25; }
+float ballD(int i, vec2 p) {
+  vec4 A = F(i, 0); vec4 B = F(i, 1); vec4 C = F(i, 2);
+  vec2 q = p - A.xy; float s = length(C.xy);
+  if (s > 0.001) { vec2 u = C.xy / s; float al = dot(q, u); vec2 pe = q - u * al; q = u * (al / (1.0 + s)) + pe * (1.0 + 0.45 * s); }
+  float th = atan(q.y, q.x);
+  float re = A.z * (1.0 + B.x * sin(2.0 * th + B.z) + B.y * sin(3.0 * th + B.z * 1.7));
+  return length(q) - re;
+}
+void main() {
+  vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+  vec2 w = (p - uRes * 0.5) / uCam.z + uCam.xy;
+  float sp = 32.0; if (sp * uCam.z < 16.0 * uDpr) sp *= 4.0;
+  vec2 g = mod(w + sp * 0.5, sp) - sp * 0.5;
+  float dotv = 1.0 - smoothstep(0.7 * uDpr, 1.7 * uDpr, length(g) * uCam.z);
+  vec3 col = mix(uBg, uGrid.rgb, dotv * uGrid.a);
+  float dg[MAXG];
+  for (int gi = 0; gi < MAXG; gi++) {
+    if (gi >= uNumGroups) break;
+    vec4 R = F(gi, 3); vec4 Bd = F(gi, 7);
+    float bd = length(p - Bd.xy) - Bd.z;
+    float d = bd;
+    if (bd < uK * 2.0 + 90.0 * uCam.z) {
+      d = 1e5; int st = int(R.x); int n = int(R.y);
+      for (int i = 0; i < ${MAXB}; i++) { if (i >= n) break; d = smin(d, ballD(st + i, p), uK); }
+    }
+    dg[gi] = d;
+  }
+  for (int j = 0; j < ${MAXBR}; j++) {
+    if (j >= uNumBridges) break;
+    vec4 Bv = F(j, 6); int a = int(Bv.x); int b = int(Bv.y);
+    float da = dg[a]; float db = dg[b]; float m = smin(da, db, Bv.z);
+    if (da <= db) dg[a] = min(da, m); else dg[b] = min(db, m);
+  }
+  float px = uDpr; float zs = uCam.z;
+  for (int gi = 0; gi < MAXG; gi++) {
+    if (gi >= uNumGroups) break;
+    vec4 R = F(gi, 3); vec4 Cc = F(gi, 4); vec4 H = F(gi, 5);
+    float d = dg[gi]; float fade = R.z; vec3 gc = Cc.rgb;
+    if (d > 0.0) col = mix(col, gc, fade * 0.10 * exp(-d / (18.0 * zs)));
+    float cov = clamp(0.5 - d / px, 0.0, 1.0);
+    if (cov > 0.0) {
+      float inner = 0.10 + 0.42 * exp(d / (14.0 * zs));
+      col = mix(col, gc, cov * inner * fade);
+      vec2 hp = p - (H.xy + vec2(-0.34, -0.40) * H.z); float hr = 0.30 * H.z;
+      float hl = exp(-dot(hp, hp) / max(hr * hr, 1.0)) * mix(0.30, 0.10, uDark);
+      col = mix(col, vec3(1.0), cov * hl * fade);
+    }
+    float rim = 1.0 - smoothstep(0.5 * px, 1.6 * px, abs(d + px));
+    vec3 rc = mix(gc * 0.80, mix(gc, vec3(1.0), 0.18), uDark);
+    col = mix(col, rc, rim * 0.95 * fade);
+  }
+  outColor = vec4(col, 1.0);
+}`;
+
+function createMembraneRenderer(canvas) {
+  const gl = canvas.getContext('webgl2', { antialias: false, premultipliedAlpha: false });
+  if (!gl) throw new Error('This browser has no WebGL2, which the bubble stage needs. Try a current Chrome, Edge, Firefox or Safari.');
+  const compile = (type, src) => {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(`bug: shader compile failed: ${gl.getShaderInfoLog(s)}`);
+    return s;
+  };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(`bug: shader link failed: ${gl.getProgramInfoLog(prog)}`);
+  const U = Object.fromEntries(['uData', 'uNumGroups', 'uNumBridges', 'uRes', 'uBg', 'uGrid', 'uCam', 'uK', 'uDpr', 'uDark'].map((n) => [n, gl.getUniformLocation(prog, n)]));
+  const vao = gl.createVertexArray();
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, TEXW, TEXH, 0, gl.RGBA, gl.FLOAT, null);
+  return {
+    draw(frame, theme) {
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(prog);
+      gl.bindVertexArray(vao);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TEXW, TEXH, gl.RGBA, gl.FLOAT, frame.data);
+      gl.uniform1i(U.uData, 0);
+      gl.uniform1i(U.uNumGroups, frame.numGroups);
+      gl.uniform1i(U.uNumBridges, frame.numBridges);
+      gl.uniform2f(U.uRes, canvas.width, canvas.height);
+      gl.uniform3f(U.uBg, ...theme.bg);
+      gl.uniform4f(U.uGrid, ...theme.grid, theme.gridA);
+      gl.uniform3f(U.uCam, frame.cam.x, frame.cam.y, frame.zs);
+      gl.uniform1f(U.uK, K.BLEND * frame.zs);
+      gl.uniform1f(U.uDpr, frame.dpr);
+      gl.uniform1f(U.uDark, theme.dark);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    },
+  };
+}
+
+/** Pack runtime bodies into the shader's data texture. Pure apart from the returned buffer. */
+function buildFrame(rt, scene, opts) {
+  const { dpr, W, H, theme, dragBubbleId } = opts;
+  const data = new Float32Array(TEXW * TEXH * 4);
+  const put = (col, row, a, b, c, d) => { const i = (row * TEXW + col) * 4; data[i] = a; data[i + 1] = b; data[i + 2] = c; data[i + 3] = d; };
+  const cam = rt.camera;
+  const zs = cam.zoom * dpr;
+  const sx = (x) => (x - cam.x) * zs + (W * dpr) / 2;
+  const sy = (y) => (y - cam.y) * zs + (H * dpr) / 2;
+  const ix = indexOf(scene);
+  const order = Object.values(rt.bubbles).sort((a, b) => {
+    const rank = (x) => (x.dying ? 0 : x.id === dragBubbleId ? 2 : 1);
+    return rank(a) - rank(b) || (ix.bubbles.has(a.id) && ix.bubbles.has(b.id) ? scene.bubbles.indexOf(ix.bubbles.get(a.id)) - scene.bubbles.indexOf(ix.bubbles.get(b.id)) : 0);
+  });
+  if (order.length > MAXG) throw new Error(`bug: ${order.length} membranes exceed the renderer limit of ${MAXG}`);
+  const elsBy = new Map();
+  for (const e of Object.values(rt.elements)) elsBy.set(e.bubbleId, [...(elsBy.get(e.bubbleId) ?? []), e]);
+  const gIndex = new Map();
+  let ball = 0;
+  order.forEach((b, g) => {
+    gIndex.set(b.id, g);
+    const start = ball;
+    const add = (x, y, r, w2, w3, ph, stx, sty) => {
+      if (ball >= MAXB) throw new Error(`bug: more than ${MAXB} metaballs`);
+      put(ball, 0, sx(x), sy(y), r * zs, g); put(ball, 1, w2, w3, ph, 0); put(ball, 2, stx, sty, 0, 0);
+      ball++;
+    };
+    let stx = b.vx / 1800, sty = b.vy / 1800;
+    if (rt.tether && rt.tether.bubbleId === b.id) {
+      const e = rt.elements[rt.tether.elementId];
+      const dx = e.x - b.x, dy = e.y - b.y, d = Math.hypot(dx, dy) || 1;
+      const k = clamp(rt.tether.gap / K.DETACH_GAP, 0, 1) * 0.22;
+      stx += (dx / d) * k; sty += (dy / d) * k;
+    }
+    const sl = Math.hypot(stx, sty);
+    if (sl > 0.35) { stx *= 0.35 / sl; sty *= 0.35 / sl; }
+    add(b.x, b.y, b.r, b.w2, b.w3, b.phase, stx, sty);
+    let bound = b.r * (1.25 + sl);
+    for (const e of elsBy.get(b.id) ?? []) {
+      const ev = Math.hypot(e.vx, e.vy) / 2600;
+      const f = ev > 0.3 ? 0.3 / ev : 1;
+      add(e.x, e.y, K.ELEM_BALL * Math.min(e.s, 1), 0, 0, 0, (e.vx / 2600) * f, (e.vy / 2600) * f);
+      bound = Math.max(bound, Math.hypot(e.x - b.x, e.y - b.y) + K.ELEM_BALL * 1.3);
+    }
+    if (rt.tether && rt.tether.bubbleId === b.id && rt.tether.gap > 0) {
+      const e = rt.elements[rt.tether.elementId];
+      const dx = e.x - b.x, dy = e.y - b.y, d = Math.hypot(dx, dy) || 1;
+      const R = bubbleRadius(scene, b.id);
+      const rimX = b.x + (dx / d) * R * 0.92, rimY = b.y + (dy / d) * R * 0.92;
+      const eX = e.x - (dx / d) * K.ELEM_BALL * 0.8, eY = e.y - (dy / d) * K.ELEM_BALL * 0.8;
+      const t = clamp(rt.tether.gap / K.DETACH_GAP, 0, 1);
+      const nr = 26 * (1 - t) + 6 * t;
+      add((rimX + eX) / 2, (rimY + eY) / 2, nr, 0, 0, 0, 0, 0);
+    }
+    const cell = theme.cells[b.hue];
+    if (!cell) throw new Error(`bug: unknown hue ${b.hue}`);
+    const fade = (b.dying ? clamp(b.r / 40, 0, 1) : 1) * litAlpha(b.lit);
+    put(g, 3, start, ball - start, fade, 0);
+    put(g, 4, cell[0], cell[1], cell[2], 0);
+    put(g, 5, sx(b.x), sy(b.y), b.r * zs, 0);
+    put(g, 7, sx(b.x), sy(b.y), bound * zs, 0);
+  });
+  let nb = 0;
+  for (const br of rt.bridges) {
+    if (nb >= MAXBR) break;
+    const a = gIndex.get(br.a), b = gIndex.get(br.b);
+    if (a === undefined || b === undefined) continue;
+    put(nb, 6, a, b, br.k * zs, 0);
+    nb++;
+  }
+  return { data, numGroups: order.length, numBridges: nb, zs, dpr, cam: { x: cam.x, y: cam.y } };
+}
+
+// ---------- overlay (icons, labels, selection) ----------
+const iconPaths = Object.fromEntries(ICON_KEYS.map((k) => [k, new Path2D(ICONS[k][1])]));
+const imgCache = new Map();
+function imageFor(id) {
+  let im = imgCache.get(id);
+  if (!im) { im = new Image(); im.src = `/_blob/${id}`; imgCache.set(id, im); }
+  return im;
+}
+
+function drawOverlay(ctx, rt, scene, ui) {
+  const { W, H, dpr, theme, mode, selection, dropTargetId, pickMode } = ui;
+  const cam = rt.camera;
+  const z = cam.zoom;
+  const sx = (x) => (x - cam.x) * z + W / 2;
+  const sy = (y) => (y - cam.y) * z + H / 2;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const ix = indexOf(scene);
+  const c = theme.css;
+
+  if (mode === 'edit') {
+    ctx.save();
+    ctx.setLineDash([3, 6]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = c.muted;
+    ctx.globalAlpha = 0.45;
+    for (const [hubId] of ix.satellites) {
+      const hub = rt.bubbles[hubId];
+      if (!hub) continue;
+      ctx.beginPath(); ctx.arc(sx(hub.x), sy(hub.y), ringRadius(scene, hubId) * z, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  for (const b of Object.values(rt.bubbles)) {
+    if (!b.title) continue;
+    const n = ix.members.get(b.id)?.length ?? 0;
+    const alpha = (b.dying ? clamp(b.r / 40, 0, 1) : 1) * litAlpha(b.lit);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.textAlign = 'center';
+    if (n === 0) {
+      ctx.fillStyle = c.fg;
+      ctx.font = `700 ${20 * z}px "Bricolage Grotesque", system-ui, sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.title, sx(b.x), sy(b.y), b.r * 1.8 * z);
+    } else {
+      ctx.fillStyle = c.muted;
+      ctx.font = `600 ${12 * z}px "Instrument Sans", system-ui, sans-serif`;
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${1.2 * z}px`;
+      ctx.textBaseline = 'top';
+      ctx.fillText(b.title.toUpperCase(), sx(b.x), sy(b.y + b.r + 12));
+    }
+    ctx.restore();
+  }
+
+  for (const l of Object.values(rt.links)) {
+    const g = linkGeometry(rt, l);
+    if (!g) continue;
+    const selected = mode === 'edit' && selection?.kind === 'link' && selection.id === l.id;
+    const pts = g.pts.map((p) => ({ x: sx(p.x), y: sy(p.y) }));
+    ctx.save();
+    ctx.globalAlpha = l.a * litAlpha(l.lit);
+    const stroke = selected ? c.accent : c.fg;
+    ctx.strokeStyle = stroke; ctx.fillStyle = stroke;
+    ctx.lineWidth = 2 * Math.max(z, 0.6);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (l.dash === 'dashed') ctx.setLineDash([8 * z, 7 * z]);
+    else if (l.dash === 'flow') { ctx.setLineDash([10 * z, 9 * z]); ctx.lineDashOffset = -rt.t * 38 * z; }
+    else if (l.dash !== 'solid') throw new Error(`bug: unknown dash ${l.dash}`);
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const head = (tip, from) => {
+      const ang = Math.atan2(tip.y - from.y, tip.x - from.x);
+      const L = 11 * Math.max(z, 0.6), Wd = 0.42;
+      ctx.beginPath();
+      ctx.moveTo(tip.x, tip.y);
+      ctx.lineTo(tip.x - L * Math.cos(ang - Wd), tip.y - L * Math.sin(ang - Wd));
+      ctx.lineTo(tip.x - L * Math.cos(ang + Wd), tip.y - L * Math.sin(ang + Wd));
+      ctx.closePath(); ctx.fill();
+    };
+    const n = pts.length;
+    if (l.head === 'end' || l.head === 'both') head(pts[n - 1], pts[Math.max(0, n - 3)]);
+    if (l.head === 'both') head(pts[0], pts[Math.min(n - 1, 2)]);
+    if (l.label) {
+      const m = { x: sx(g.mid.x), y: sy(g.mid.y) };
+      ctx.font = `600 ${12 * z}px "Instrument Sans", system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const w = ctx.measureText(l.label).width + 14 * z, h = 22 * z;
+      ctx.beginPath();
+      ctx.roundRect(m.x - w / 2, m.y - h / 2, w, h, h / 2);
+      ctx.fillStyle = c.surface; ctx.fill();
+      ctx.lineWidth = 1; ctx.strokeStyle = selected ? c.accent : c.muted; ctx.stroke();
+      ctx.fillStyle = c.fg; ctx.fillText(l.label, m.x, m.y + 0.5 * z);
+    }
+    ctx.restore();
+  }
+  if (ui.pendingLink) {
+    const from = rt.elements[ui.pendingLink.fromId];
+    const to = ui.pendingLink.targetId ? rt.elements[ui.pendingLink.targetId] : null;
+    if (from) {
+      ctx.save();
+      ctx.strokeStyle = c.accent; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.moveTo(sx(from.x), sy(from.y - 8));
+      ctx.lineTo(to ? sx(to.x) : sx(ui.pendingLink.x), to ? sy(to.y - 8) : sy(ui.pendingLink.y));
+      ctx.stroke();
+      if (to) { ctx.setLineDash([]); ctx.beginPath(); ctx.arc(sx(to.x), sy(to.y - 8), (K.ELEM_R + 6) * z, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.restore();
+    }
+  }
+
+  for (const e of Object.values(rt.elements)) {
+    if (e.s < 0.02) continue;
+    const host = rt.bubbles[e.bubbleId];
+    const hue = e.hue ? c.cells[e.hue] : host ? c.cells[host.hue] : c.muted;
+    ctx.save();
+    ctx.globalAlpha = litAlpha(e.lit);
+    ctx.translate(sx(e.x), sy(e.y));
+    ctx.scale(z * e.s, z * e.s);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const hasChip = e.imageId || e.icon;
+    if (hasChip) {
+      ctx.beginPath(); ctx.arc(0, -8, K.ELEM_R, 0, Math.PI * 2);
+      ctx.fillStyle = c.surface; ctx.fill();
+      if (e.imageId) {
+        const im = imageFor(e.imageId);
+        if (im.complete && im.naturalWidth) {
+          ctx.save(); ctx.clip();
+          const s = Math.max((K.ELEM_R * 2) / im.naturalWidth, (K.ELEM_R * 2) / im.naturalHeight);
+          ctx.drawImage(im, -im.naturalWidth * s / 2, -8 - im.naturalHeight * s / 2, im.naturalWidth * s, im.naturalHeight * s);
+          ctx.restore();
+        }
+      } else {
+        ctx.save();
+        ctx.translate(-12 * 1.1, -8 - 12 * 1.1); ctx.scale(1.1, 1.1);
+        ctx.strokeStyle = c.fg; ctx.lineWidth = 1.7; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.stroke(iconPaths[e.icon]);
+        ctx.restore();
+      }
+      ctx.beginPath(); ctx.arc(0, -8, K.ELEM_R, 0, Math.PI * 2);
+      ctx.strokeStyle = hue; ctx.lineWidth = 1.5; ctx.stroke();
+      if (e.label) {
+        ctx.font = '600 13px "Instrument Sans", system-ui, sans-serif';
+        const w = ctx.measureText(e.label).width;
+        const f = w > 96 ? 96 / w : 1;
+        ctx.save(); ctx.scale(f, f);
+        ctx.fillStyle = c.fg; ctx.fillText(e.label, 0, 32 / f);
+        ctx.restore();
+      }
+    } else {
+      ctx.font = '700 17px "Bricolage Grotesque", system-ui, sans-serif';
+      const w = ctx.measureText(e.label || ' ').width;
+      const f = w > 92 ? 92 / w : 1;
+      ctx.scale(f, f);
+      ctx.fillStyle = c.fg; ctx.fillText(e.label, 0, 0);
+    }
+    ctx.restore();
+  }
+
+  for (const pk of ui.packets) {
+    const l = rt.links[pk.linkId];
+    const g = l && linkGeometry(rt, l);
+    if (!g) continue;
+    const raw = clamp((rt.t - pk.start) / pk.dur, 0, 1);
+    const p = raw < 0.5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2;
+    const at = pointAlong(g.pts, p);
+    const x = sx(at.x), y = sy(at.y);
+    const fadeIn = clamp(raw * 8, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = fadeIn;
+    ctx.shadowColor = c.accent; ctx.shadowBlur = 16;
+    ctx.fillStyle = c.accent;
+    ctx.beginPath(); ctx.arc(x, y, 7 * Math.max(z, 0.7), 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.font = `700 ${12 * Math.max(z, 0.8)}px "Instrument Sans", system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(pk.label).width + 16, h = 22 * Math.max(z, 0.8);
+    ctx.beginPath(); ctx.roundRect(x - w / 2, y - h - 14, w, h, h / 2);
+    ctx.fillStyle = c.accent; ctx.fill();
+    ctx.fillStyle = c.surface; ctx.fillText(pk.label, x, y - h / 2 - 14 + 0.5);
+    ctx.restore();
+  }
+
+  if (mode === 'present' && selection?.kind === 'element' && rt.elements[selection.id]) {
+    const e = rt.elements[selection.id];
+    ctx.save();
+    ctx.strokeStyle = c.accent; ctx.lineWidth = 2; ctx.globalAlpha = 0.8;
+    ctx.beginPath(); ctx.arc(sx(e.x), sy(e.y - 8), (K.ELEM_R + 6) * z, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  if (mode === 'edit' && selection) {
+    ctx.save();
+    ctx.strokeStyle = c.accent; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    if (selection.kind === 'bubble' && rt.bubbles[selection.id]) {
+      const b = rt.bubbles[selection.id];
+      ctx.beginPath(); ctx.arc(sx(b.x), sy(b.y), b.r * z + 8, 0, Math.PI * 2); ctx.stroke();
+    } else if (selection.kind === 'element' && rt.elements[selection.id]) {
+      const e = rt.elements[selection.id];
+      ctx.beginPath(); ctx.arc(sx(e.x), sy(e.y - 8), (K.ELEM_R + 7) * z, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if (dropTargetId && rt.bubbles[dropTargetId]) {
+    const b = rt.bubbles[dropTargetId];
+    ctx.save();
+    ctx.strokeStyle = c.cells[b.hue]; ctx.lineWidth = 3; ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.arc(sx(b.x), sy(b.y), b.r * z + 7, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  if (pickMode) {
+    ctx.save(); ctx.fillStyle = c.accent; ctx.globalAlpha = 0.06; ctx.fillRect(0, 0, W, H); ctx.restore();
+  }
+}
+
+// ---------- app state (the only mutable holder) ----------
+const app = {
+  scene: TEMPLATE.scene,
+  rt: createRuntime(TEMPLATE.scene, TEMPLATE.camera),
+  cam: { ...TEMPLATE.camera },
+  past: [], future: [],
+  selection: null,
+  mode: 'edit',
+  pick: null,
+  drag: null,
+  dropTargetId: null,
+  views: [],
+  activeViewId: null,
+  filter: EMPTY_FILTER,
+  packets: [],
+  msgDraft: null, // { linkId, messageId | null } while the message editor is open
+  filterOpen: false,
+  presentStash: null,
+  db: null, assets: null, canEdit: true,
+  saveState: 'connecting',
+  theme: readTheme(),
+};
+
+function showError(err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(err);
+  $('bannerText').textContent = msg;
+  $('banner').hidden = false;
+}
+$('bannerClose').addEventListener('click', () => { $('banner').hidden = true; });
+
+function setScene(next, { history, hints = { spawnFrom: {} } }) {
+  if (next === app.scene) return;
+  app.rt = syncRuntime(app.rt, app.scene, next, hints);
+  if (history) {
+    app.past = [...app.past.slice(-99), app.scene];
+    app.future = [];
+  }
+  app.scene = next;
+  const ix = indexOf(next);
+  if (app.selection && !({ bubble: ix.bubbles, element: ix.elements, link: ix.links }[app.selection.kind]).has(app.selection.id)) app.selection = null;
+  scheduleSave();
+  renderUI();
+}
+
+function dispatch(cmd, hints = { spawnFrom: {} }) {
+  try {
+    const frozen = freezeScene(app.scene, app.rt);
+    setScene(applyCommand(frozen, cmd), { history: app.mode === 'edit', hints });
+    return true;
+  } catch (err) {
+    showError(err);
+    return false;
+  }
+}
+const nextHue = (scene) => HUES[scene.bubbles.length % HUES.length];
+
+function undo() {
+  if (!app.past.length) return;
+  const prev = app.past[app.past.length - 1];
+  app.past = app.past.slice(0, -1);
+  app.future = [app.scene, ...app.future];
+  setScene(prev, { history: false });
+}
+function redo() {
+  if (!app.future.length) return;
+  const [nxt, ...rest] = app.future;
+  app.future = rest;
+  app.past = [...app.past, app.scene];
+  setScene(nxt, { history: false });
+}
+
+// ---------- persistence ----------
+let saveTimer = null;
+function setStatus() {
+  const s = {
+    connecting: 'Connecting…',
+    local: 'Not saved · storage unavailable',
+    readonly: 'View only · changes are not saved',
+    saving: 'Saving…', saved: 'Saved', dirty: 'Unsaved changes', error: 'Save failed',
+  }[app.saveState];
+  if (!s) throw new Error(`bug: unknown save state ${app.saveState}`);
+  $('status').textContent = s;
+}
+function scheduleSave() {
+  if (!app.db || !app.canEdit || app.mode !== 'edit') return;
+  app.saveState = 'dirty'; setStatus();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveWorking, 700);
+}
+async function saveWorking() {
+  if (!app.db || !app.canEdit || app.mode !== 'edit') return;
+  app.saveState = 'saving'; setStatus();
+  try {
+    const doc = parseOrThrow(WorkingDocSchema, { scene: freezeScene(app.scene, app.rt), camera: roundCam(app.cam), updatedAt: Date.now() }, 'Stage');
+    await app.db.doc('deck/working').set(doc);
+    app.saveState = 'saved';
+  } catch (err) {
+    app.saveState = 'error';
+    showError(new Error(`Could not save the stage: ${err?.message ?? err?.code ?? err}`));
+  }
+  setStatus();
+}
+const roundCam = (c) => ({ x: Math.round(c.x), y: Math.round(c.y), zoom: Math.round(c.zoom * 1000) / 1000 });
+
+async function connect() {
+  const use = window.claude?.use;
+  if (!use) { app.saveState = 'local'; setStatus(); return; }
+  const [db, user, assets] = await Promise.all([use('db'), use('user'), use('assets')]);
+  app.db = db; app.assets = assets;
+  app.canEdit = user ? await user.canEdit() : !!db;
+  if (!db) { app.saveState = 'local'; setStatus(); renderUI(); return; }
+  app.saveState = app.canEdit ? 'saved' : 'readonly';
+  setStatus();
+  try {
+    const snap = await db.doc('deck/working').get();
+    if (snap.exists) {
+      const doc = parseOrThrow(WorkingDocSchema, migrateWorking(snap.data()), 'The saved stage');
+      checkLoaded(doc.scene, 'The saved stage');
+      app.scene = doc.scene;
+      app.rt = createRuntime(doc.scene, doc.camera);
+      app.cam = { ...doc.camera };
+      app.past = []; app.future = [];
+    }
+  } catch (err) { showError(err); }
+  db.collection('views').orderBy('order').onSnapshot((qs) => {
+    const ok = [];
+    const bad = [];
+    for (const d of qs.docs) {
+      try {
+        const raw = d.data();
+        const v = parseOrThrow(ViewDocSchema, { ...raw, scene: migrateScene(raw.scene) }, `View "${d.id}"`);
+        checkLoaded(v.scene, `View "${v.name}"`);
+        ok.push({ id: d.id, ...v });
+      } catch (err) { bad.push(err.message); }
+    }
+    app.views = ok;
+    if (bad.length) showError(new Error(`${bad.length} saved view(s) could not be read and are hidden. ${bad.join(' · ')}`));
+    if (app.activeViewId && !ok.some((v) => v.id === app.activeViewId)) app.activeViewId = null;
+    renderUI();
+  }, (err) => showError(new Error(`Views stopped syncing (${err.code}). Reload to reconnect.`)));
+  renderUI();
+}
+function checkLoaded(scene, what) {
+  try { checkScene(scene); } catch (err) { throw new Error(`${what} has broken references: ${err.message}`); }
+}
+
+// ---------- views ----------
+async function saveView() {
+  if (!app.db) { showError('Views need the page’s storage, which is not available here. Open the page from claude.ai to save views.'); return; }
+  const id = newId('v');
+  const order = app.views.reduce((m, v) => Math.max(m, v.order), 0) + 1;
+  const doc = parseOrThrow(ViewDocSchema, { name: `View ${app.views.length + 1}`, order, scene: freezeScene(app.scene, app.rt), camera: roundCam(app.cam), updatedAt: Date.now() }, 'New view');
+  try {
+    await app.db.doc(`views/${id}`).set(doc);
+    app.activeViewId = id;
+    renderUI();
+  } catch (err) { showError(new Error(`Could not save the view: ${err?.message ?? err?.code}`)); }
+}
+async function updateView(patch) {
+  const v = app.views.find((x) => x.id === app.activeViewId);
+  if (!v) throw new Error('bug: no active view to update');
+  try { await app.db.doc(`views/${v.id}`).update({ ...patch, updatedAt: Date.now() }); } catch (err) { showError(new Error(`Could not update the view: ${err?.message ?? err?.code}`)); }
+}
+async function moveView(dir) {
+  const i = app.views.findIndex((x) => x.id === app.activeViewId);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= app.views.length) return;
+  const a = app.views[i], b = app.views[j];
+  try {
+    await Promise.all([app.db.doc(`views/${a.id}`).update({ order: b.order }), app.db.doc(`views/${b.id}`).update({ order: a.order })]);
+  } catch (err) { showError(new Error(`Could not reorder: ${err?.message ?? err?.code}`)); }
+}
+let deleteArmed = null;
+async function deleteView() {
+  const v = app.views.find((x) => x.id === app.activeViewId);
+  if (!v) return;
+  if (deleteArmed !== v.id) {
+    deleteArmed = v.id; $('vDel').textContent = 'Confirm delete';
+    setTimeout(() => { deleteArmed = null; $('vDel').textContent = 'Delete'; }, 3000);
+    return;
+  }
+  deleteArmed = null; $('vDel').textContent = 'Delete';
+  try { await app.db.doc(`views/${v.id}`).delete(); app.activeViewId = null; renderUI(); } catch (err) { showError(new Error(`Could not delete: ${err?.message ?? err?.code}`)); }
+}
+function goToView(id) {
+  const v = app.views.find((x) => x.id === id);
+  if (!v) throw new Error(`bug: unknown view ${id}`);
+  app.activeViewId = id;
+  app.selection = null;
+  setScene(v.scene, { history: app.mode === 'edit' });
+  app.cam = { ...v.camera };
+  renderUI();
+}
+function stepView(dir) {
+  if (!app.views.length) return;
+  const i = app.views.findIndex((x) => x.id === app.activeViewId);
+  const j = i < 0 ? 0 : clamp(i + dir, 0, app.views.length - 1);
+  if (j !== i) goToView(app.views[j].id);
+}
+
+// ---------- present mode ----------
+function enterPresent() {
+  app.presentStash = { scene: freezeScene(app.scene, app.rt), cam: { ...app.cam } };
+  app.mode = 'present'; app.pick = null; app.selection = null;
+  $('app').classList.add('present');
+  document.documentElement.requestFullscreen?.().catch(() => {});
+  if (app.views.length) goToView((app.views.find((v) => v.id === app.activeViewId) ?? app.views[0]).id);
+  renderUI();
+  resize();
+}
+function exitPresent() {
+  if (app.mode !== 'present') return;
+  app.mode = 'edit';
+  $('app').classList.remove('present');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  const st = app.presentStash;
+  app.presentStash = null;
+  setScene(st.scene, { history: false });
+  app.cam = st.cam;
+  renderUI();
+  resize();
+}
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && app.mode === 'present') exitPresent(); });
+
+// ---------- UI binding ----------
+const iconSvg = (key) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[key][1]}"/></svg>`;
+(function buildPickers() {
+  const hues = $('bHues');
+  for (const h of HUES) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'swatch'; b.style.setProperty('--c', `var(--cell-${h})`);
+    b.setAttribute('aria-label', h); b.dataset.hue = h;
+    b.addEventListener('click', () => app.selection && dispatch({ type: 'updateBubble', id: app.selection.id, patch: { hue: h } }));
+    hues.append(b);
+  }
+  const icons = $('eIcons');
+  const none = document.createElement('button');
+  none.type = 'button'; none.dataset.icon = ''; none.setAttribute('aria-label', 'No icon'); none.innerHTML = '<span class="none">None</span>';
+  none.addEventListener('click', () => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { icon: null } }));
+  icons.append(none);
+  for (const k of ICON_KEYS) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.icon = k; b.setAttribute('aria-label', ICONS[k][0]); b.title = ICONS[k][0]; b.innerHTML = iconSvg(k);
+    b.addEventListener('click', () => {
+      if (!app.selection) return;
+      const e = indexOf(app.scene).elements.get(app.selection.id);
+      const patch = { icon: k };
+      if (!e.label || Object.values(ICONS).some(([n]) => n === e.label)) patch.label = ICONS[k][0];
+      dispatch({ type: 'updateElement', id: app.selection.id, patch });
+    });
+    icons.append(b);
+  }
+})();
+
+function renderUI() {
+  const ix = indexOf(app.scene);
+  const sel = app.selection;
+  const selB = sel?.kind === 'bubble' ? ix.bubbles.get(sel.id) : null;
+  const selE = sel?.kind === 'element' ? ix.elements.get(sel.id) : null;
+  const selL = sel?.kind === 'link' ? ix.links.get(sel.id) : null;
+  $('inspNone').hidden = !!(selB || selE || selL);
+  $('inspBubble').hidden = !selB;
+  $('inspElement').hidden = !selE;
+  $('inspLink').hidden = !selL;
+  if (selL) {
+    if (document.activeElement !== $('lLabel')) $('lLabel').value = selL.label;
+    for (const b of $('lHead').children) b.setAttribute('aria-pressed', String(b.dataset.v === selL.head));
+    for (const b of $('lDash').children) b.setAttribute('aria-pressed', String(b.dataset.v === selL.dash));
+    $('lElastic').checked = selL.elasticity > 0;
+    $('lElasticity').disabled = selL.elasticity <= 0;
+    if (selL.elasticity > 0) $('lElasticity').value = String(selL.elasticity);
+    $('lElasticOut').textContent = selL.elasticity > 0 ? selL.elasticity.toFixed(2) : 'off';
+  }
+  $('connect').setAttribute('aria-pressed', String(app.pick === 'connect'));
+  if (selB) renderTagChips($('bTags'), selB.tags, (t) => dispatch({ type: 'updateBubble', id: selB.id, patch: { tags: selB.tags.filter((x) => x !== t) } }));
+  if (selL) renderTagChips($('lTags'), selL.tags, (t) => dispatch({ type: 'updateLink', id: selL.id, patch: { tags: selL.tags.filter((x) => x !== t) } }));
+  if (selE) renderTagChips($('eTags'), selE.tags, (t) => dispatch({ type: 'updateElement', id: selE.id, patch: { tags: selE.tags.filter((x) => x !== t) } }));
+  renderFilter();
+  renderStageControls();
+  renderPresentStrip();
+  renderMessages();
+  if (selB) {
+    if (document.activeElement !== $('bTitle')) $('bTitle').value = selB.title;
+    for (const b of $('bHues').children) b.setAttribute('aria-pressed', String(b.dataset.hue === selB.hue));
+    $('bOrbit').hidden = !!selB.orbit;
+    $('bUnorbit').hidden = !selB.orbit;
+  }
+  if (selE) {
+    if (document.activeElement !== $('eLabel')) $('eLabel').value = selE.label;
+    for (const b of $('eIcons').children) b.setAttribute('aria-pressed', String((b.dataset.icon || null) === selE.icon));
+    const canUpload = !!app.assets;
+    $('eUploadLbl').hidden = !canUpload;
+    $('eNoImg').hidden = !selE.imageId;
+    $('eImgNote').textContent = canUpload ? '' : 'Image upload needs edit access on claude.ai.';
+    $('ePull').disabled = ix.members.get(selE.bubbleId).length < 2 && !ix.bubbles.get(selE.bubbleId).title;
+  }
+  $('undo').disabled = !app.past.length;
+  $('redo').disabled = !app.future.length;
+  $('pickbar').hidden = !app.pick;
+  if (app.pick) {
+    const txt = { orbit: 'Click the bubble to orbit around · Esc to cancel', connect: 'Drag from one element to another to connect them · Esc when done' }[app.pick];
+    if (!txt) throw new Error(`bug: unknown pick mode ${app.pick}`);
+    $('pickbar').textContent = txt;
+  }
+
+  const chips = $('chips');
+  chips.replaceChildren();
+  if (!app.views.length) {
+    const p = document.createElement('span');
+    p.className = 'empty';
+    p.textContent = app.db ? 'No views yet. Arrange the stage, then Save view.' : 'Views are saved to this page on claude.ai.';
+    chips.append(p);
+  }
+  app.views.forEach((v, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip';
+    b.setAttribute('aria-current', String(v.id === app.activeViewId));
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = String(i + 1);
+    const t = document.createElement('span'); t.textContent = v.name;
+    b.append(n, t);
+    b.addEventListener('click', () => goToView(v.id));
+    chips.append(b);
+  });
+  const active = app.views.find((v) => v.id === app.activeViewId);
+  $('vedit').hidden = !active || !app.canEdit;
+  if (active && document.activeElement !== $('vName')) $('vName').value = active.name;
+  $('vSave').disabled = !app.db || !app.canEdit;
+
+  const hudOn = app.mode === 'present';
+  $('hud').hidden = !hudOn; $('exit').hidden = !hudOn;
+  if (hudOn) {
+    const i = app.views.findIndex((v) => v.id === app.activeViewId);
+    $('hudPos').textContent = app.views.length ? `${i + 1} / ${app.views.length} · ${active?.name ?? ''}` : 'No saved views';
+    $('prev').disabled = i <= 0;
+    $('next').disabled = i < 0 ? !app.views.length : i >= app.views.length - 1;
+  }
+}
+
+function renderTagChips(box, tags, onRemove) {
+  box.replaceChildren(...tags.map((t) => {
+    const chip = document.createElement('span');
+    chip.className = 'tag';
+    const name = document.createElement('span');
+    name.textContent = t;
+    const x = document.createElement('button');
+    x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', `Remove tag ${t}`);
+    x.addEventListener('click', () => onRemove(t));
+    chip.append(name, x);
+    return chip;
+  }));
+}
+
+function renderFilter() {
+  const f = app.filter;
+  const tags = tagsInScene(app.scene);
+  const icons = iconsInScene(app.scene);
+  $('tagList').replaceChildren(...tags.map((t) => Object.assign(document.createElement('option'), { value: t })));
+  const n = f.tags.length + f.icons.length;
+  $('fBadge').hidden = n === 0;
+  $('fBadge').textContent = String(n);
+  $('fToggle').classList.toggle('on', n > 0);
+  $('fToggle').setAttribute('aria-expanded', String(app.filterOpen));
+  $('fPanel').hidden = !app.filterOpen;
+  if (document.activeElement !== $('fQuery')) $('fQuery').value = f.q;
+  const m = filterMatch(app.scene, f);
+  $('fCount').textContent = m ? `${m.elements.size} of ${app.scene.elements.length} elements match` : `${app.scene.elements.length} elements · nothing filtered`;
+  $('fClear').hidden = !filterActive(f);
+  const chip = (label, pressed, onClick, svg) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'fchip';
+    b.setAttribute('aria-pressed', String(pressed));
+    if (svg) b.innerHTML = svg;
+    b.append(document.createTextNode(label));
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  const toggle = (list, v) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  const empty = (text) => Object.assign(document.createElement('span'), { className: 'fempty', textContent: text });
+  // Selected tags stay listed even if nothing uses them any more, so they can be turned off.
+  const tagOpts = [...new Set([...tags, ...f.tags])].sort();
+  $('fTags').replaceChildren(...(tagOpts.length ? tagOpts.map((t) => chip(t, f.tags.includes(t), () => setFilter({ ...f, tags: toggle(f.tags, t) }))) : [empty('No tags yet. Add them in the inspector.')]));
+  const iconOpts = ICON_KEYS.filter((k) => icons.includes(k) || f.icons.includes(k));
+  $('fIcons').replaceChildren(...(iconOpts.length ? iconOpts.map((k) => chip(ICONS[k][0], f.icons.includes(k), () => setFilter({ ...f, icons: toggle(f.icons, k) }), iconSvg(k))) : [empty('No icons on the stage.')]));
+}
+function setFilter(f) { app.filter = f; renderFilter(); }
+
+function addTag(input, kind) {
+  if (app.selection?.kind !== kind) throw new Error(`bug: tag input for ${kind} without that selection`);
+  const raw = input.value;
+  if (!raw.trim()) return;
+  let tag;
+  try { tag = normalizeTag(raw); } catch (err) { showError(err); return; }
+  const ix = indexOf(app.scene);
+  const map = { bubble: [ix.bubbles, 'updateBubble'], element: [ix.elements, 'updateElement'], link: [ix.links, 'updateLink'] }[kind];
+  if (!map) throw new Error(`bug: tags on unknown kind ${kind}`);
+  const cur = map[0].get(app.selection.id);
+  input.value = '';
+  if (cur.tags.includes(tag)) return;
+  if (cur.tags.length >= 12) { showError('Each bubble, element or connection can have up to 12 tags.'); return; }
+  dispatch({ type: map[1], id: cur.id, patch: { tags: [...cur.tags, tag] } });
+}
+for (const [id, kind] of [['bTagIn', 'bubble'], ['eTagIn', 'element'], ['lTagIn', 'link']]) {
+  $(id).addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ',') { ev.preventDefault(); addTag(ev.target, kind); }
+  });
+  $(id).addEventListener('change', (ev) => { if (tagsInScene(app.scene).includes(ev.target.value.trim().toLowerCase())) addTag(ev.target, kind); });
+}
+
+$('fQuery').addEventListener('input', (ev) => setFilter({ ...app.filter, q: ev.target.value }));
+$('fToggle').addEventListener('click', () => { app.filterOpen = !app.filterOpen; renderFilter(); });
+$('fClear').addEventListener('click', () => { setFilter(EMPTY_FILTER); $('fQuery').value = ''; });
+document.addEventListener('pointerdown', (ev) => {
+  if (app.filterOpen && !$('filterWrap').contains(ev.target)) { app.filterOpen = false; renderFilter(); }
+});
+
+// ---------- messages ----------
+const ACTION_GLYPH = {
+  add: 'M12 6v12M6 12h12',
+  split: 'M8 12a4 4 0 1 1 0 .01M16 12a4 4 0 1 1 0 .01',
+  clone: 'M8 8h11v11H8z M5 16V5h11',
+  remove: 'M6 6l12 12M18 6L6 18',
+  connect: 'M5 18l5-5M14 9l5-5M9 9l6 6',
+  send: 'M4 12h13M13 7l5 5-5 5',
+};
+const glyph = (kind) => {
+  const d = ACTION_GLYPH[kind];
+  if (!d) throw new Error(`bug: no glyph for ${kind}`);
+  return `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="${d}"/></svg>`;
+};
+
+/** Messages the selected element can send right now: one per message on each connection that starts at it. */
+function availableMessages() {
+  if (app.selection?.kind !== 'element') return [];
+  const ix = indexOf(app.scene);
+  return app.scene.links.filter((l) => l.from === app.selection.id).flatMap((l) => l.messages.map((msg) => ({ link: l, msg, target: ix.elements.get(l.to) })));
+}
+
+function sendMessage(linkId, messageId, depth = 0) {
+  const l = indexOf(app.scene).links.get(linkId);
+  if (!l) throw new Error(`bug: send on missing connection ${linkId}`);
+  const msg = l.messages.find((m) => m.id === messageId);
+  if (!msg) throw new Error(`bug: send of missing message ${messageId}`);
+  const body = app.rt.links[linkId];
+  const g = body && linkGeometry(app.rt, body);
+  const len = g ? pointAlong(g.pts, 1).total : 200;
+  app.packets = [...app.packets, { key: newId('pk'), linkId, messageId, depth, label: msg.label, start: app.rt.t, dur: clamp(len / 380, 0.7, 1.8) }];
+}
+
+function deliverArrivedPackets() {
+  const arrived = app.packets.filter((pk) => app.rt.t - pk.start >= pk.dur);
+  if (!arrived.length) return;
+  app.packets = app.packets.filter((pk) => !arrived.includes(pk));
+  for (const pk of arrived) {
+    try {
+      const { cmd, hints, sends, notes } = messageCommand(app.scene, app.rt, pk.linkId, pk.messageId, newId('m'));
+      if (cmd.cmds.length && !dispatch(cmd, hints)) continue;
+      if (notes.length) showError(new UserError(notes.join(' ')));
+      if (sends.length && pk.depth + 1 >= LIMIT_CHAIN) { showError(new UserError(`Stopped a chain of messages after ${LIMIT_CHAIN} hops, so a loop cannot run forever.`)); continue; }
+      for (const sd of sends) sendMessage(sd.linkId, sd.messageId, pk.depth + 1);
+    } catch (err) { showError(err); }
+  }
+}
+
+let uidN = 0;
+const uid = (p) => `${p}${++uidN}`;
+const parseTags = (raw) => [...new Set(raw.split(',').map((t) => t.trim()).filter(Boolean).map(normalizeTag))];
+const field = (labelText, control, hint) => {
+  const f = document.createElement('div');
+  f.className = 'field';
+  const lab = document.createElement('label');
+  lab.htmlFor = control.id;
+  lab.append(labelText);
+  if (hint) lab.append(' ', Object.assign(document.createElement('span'), { className: 'hint2', textContent: hint }));
+  f.append(lab, control);
+  return f;
+};
+const select = (options, value) => {
+  const el = document.createElement('select');
+  el.id = uid('s');
+  el.append(...options.map(([v, t]) => new Option(t, v)));
+  el.value = value;
+  return el;
+};
+const textInput = (value, placeholder, maxLength, list) => {
+  const el = Object.assign(document.createElement('input'), { type: 'text', id: uid('t'), value, placeholder, maxLength, autocomplete: 'off' });
+  if (list) el.setAttribute('list', list);
+  return el;
+};
+
+// ---- small controls: button groups, icon picker, colour picker ----
+/** Single-choice button group. options: [[value, label, svgHtml?]]. */
+function segmented(options, value, labelText) {
+  const el = document.createElement('div');
+  el.className = 'seg';
+  el.setAttribute('role', 'group');
+  el.style.gridTemplateColumns = `repeat(${options.length}, minmax(0, 1fr))`;
+  if (labelText) el.setAttribute('aria-label', labelText);
+  const listeners = [];
+  let cur = value;
+  const btns = options.map(([v, label, svg]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.v = v;
+    if (svg) b.insertAdjacentHTML('beforeend', svg);
+    b.append(label);
+    b.addEventListener('click', () => { cur = v; sync(); listeners.forEach((f) => f(v)); });
+    return b;
+  });
+  const sync = () => btns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === cur)));
+  sync();
+  el.append(...btns);
+  return { el, get value() { return cur; }, onChange: (f) => listeners.push(f) };
+}
+/** The element panel's icon grid, single choice, with a None option. */
+function iconPicker(value, labelId) {
+  const el = document.createElement('div');
+  el.className = 'icons';
+  el.setAttribute('role', 'group');
+  el.setAttribute('aria-labelledby', labelId);
+  let cur = value;
+  const opts = [['', 'None'], ...ICON_KEYS.map((k) => [k, ICONS[k][0]])];
+  const btns = opts.map(([k, name]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.icon = k; b.title = name; b.setAttribute('aria-label', k ? name : 'No icon');
+    b.innerHTML = k ? iconSvg(k) : '<span class="none">None</span>';
+    b.addEventListener('click', () => { cur = k || null; sync(); });
+    return b;
+  });
+  const sync = () => btns.forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.icon || null) === cur)));
+  sync();
+  el.append(...btns);
+  return { el, get value() { return cur; } };
+}
+/** The membrane swatches, with "same as the bubble" first. */
+function huePicker(value, labelId) {
+  const el = document.createElement('div');
+  el.className = 'swatches';
+  el.setAttribute('role', 'group');
+  el.setAttribute('aria-labelledby', labelId);
+  let cur = value;
+  const btns = [null, ...HUES].map((h) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.hue = h ?? '';
+    b.className = h ? 'swatch' : 'swatch auto';
+    if (h) b.style.setProperty('--c', `var(--cell-${h})`);
+    b.setAttribute('aria-label', h ?? 'Same as the bubble'); b.title = h ?? 'Same as the bubble';
+    b.addEventListener('click', () => { cur = h; sync(); });
+    return b;
+  });
+  const sync = () => btns.forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.hue || null) === cur)));
+  sync();
+  el.append(...btns);
+  return { el, get value() { return cur; } };
+}
+const labelled = (text, control) => {
+  const f = document.createElement('div');
+  f.className = 'field';
+  const id = uid('lbl');
+  f.append(Object.assign(document.createElement('span'), { className: 'lbl', id, textContent: text }));
+  control.el.setAttribute('aria-labelledby', id);
+  f.append(control.el);
+  return f;
+};
+
+/** A From/To/Senders selector: source, target, or a query. Returns its element, a reader and a change hook. */
+function selectorControl(legend, sel) {
+  const box = document.createElement('fieldset');
+  box.className = 'sel';
+  box.append(Object.assign(document.createElement('legend'), { textContent: legend }));
+  const kind = segmented([['source', 'Source'], ['target', 'Target'], ['query', 'Query']], sel.kind, `${legend}: which elements`);
+  const q = document.createElement('div');
+  q.className = 'sub';
+  const text = textInput(sel.kind === 'query' ? sel.q : '', 'label, tag or icon name', 60);
+  const tags = textInput(sel.kind === 'query' ? sel.tags.join(', ') : '', '', 200, 'tagList');
+  const icons = document.createElement('div');
+  icons.className = 'icons'; icons.setAttribute('role', 'group');
+  const iconsLbl = Object.assign(document.createElement('span'), { className: 'lbl', id: uid('l'), textContent: 'Icons (any of)' });
+  icons.setAttribute('aria-labelledby', iconsLbl.id);
+  const listeners = [];
+  const changed = () => listeners.forEach((f) => f());
+  for (const k of ICON_KEYS) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.icon = k; b.title = ICONS[k][0]; b.setAttribute('aria-label', ICONS[k][0]);
+    b.setAttribute('aria-pressed', String(sel.kind === 'query' && sel.icons.includes(k)));
+    b.innerHTML = iconSvg(k);
+    b.addEventListener('click', () => { b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); changed(); });
+    icons.append(b);
+  }
+  const iconField = document.createElement('div');
+  iconField.className = 'field';
+  iconField.append(iconsLbl, icons);
+  q.append(field('Text', text), field('Tags', tags, 'comma separated'), iconField);
+  q.hidden = sel.kind !== 'query';
+  kind.onChange((v) => { q.hidden = v !== 'query'; changed(); });
+  text.addEventListener('input', changed);
+  tags.addEventListener('input', changed);
+  box.append(kind.el, q);
+  return {
+    el: box,
+    onChange: (f) => listeners.push(f),
+    /** strict=false is used for live previews, where half-typed input should not raise errors. */
+    read: (strict = true) => {
+      const k = kind.value;
+      if (k === 'source' || k === 'target') return { kind: k };
+      if (k !== 'query') throw new Error(`bug: selector kind ${k}`);
+      let tagList;
+      try { tagList = parseTags(tags.value); } catch (err) { if (strict) throw err; tagList = []; }
+      const out = { kind: 'query', q: text.value.trim(), tags: tagList, icons: [...icons.querySelectorAll('[aria-pressed="true"]')].map((b) => b.dataset.icon) };
+      if (strict && !out.q && !out.tags.length && !out.icons.length) throw new UserError(`Give the “${legend}” query some text, tags or icons to match.`);
+      return out;
+    },
+  };
+}
+
+const ACTION_KINDS = [['add', 'Add element'], ['split', 'Split out'], ['clone', 'Clone'], ['remove', 'Remove'], ['connect', 'Connect'], ['send', 'Send message']];
+const DEFAULT_ACTION = {
+  add: () => ({ kind: 'add', label: '', icon: null, tags: [], hue: null }),
+  split: () => ({ kind: 'split' }), clone: () => ({ kind: 'clone' }), remove: () => ({ kind: 'remove' }),
+  connect: () => ({ kind: 'connect', from: { kind: 'source' }, to: { kind: 'query', q: '', tags: [], icons: [] }, label: '', head: 'end', dash: 'solid', elasticity: 0 }),
+  send: () => ({ kind: 'send', from: { kind: 'target' }, message: '' }),
+};
+
+/** Settings for one step, shown in the dialog; returns { el, read } where read() builds the action or throws a UserError. */
+function actionBody(a, link) {
+  const el = document.createElement('div');
+  el.className = 'sub';
+  switch (a.kind) {
+    case 'add': {
+      const label = textInput(a.label, 'e.g. Postgres', 60);
+      const tags = textInput(a.tags.join(', '), 'e.g. data, async', 200, 'tagList');
+      const iconLbl = uid('lbl'), hueLbl = uid('lbl');
+      const icon = iconPicker(a.icon, iconLbl);
+      const hue = huePicker(a.hue, hueLbl);
+      const iconField = document.createElement('div'); iconField.className = 'field';
+      iconField.append(Object.assign(document.createElement('span'), { className: 'lbl', id: iconLbl, textContent: 'Icon' }), icon.el);
+      const hueField = document.createElement('div'); hueField.className = 'field';
+      hueField.append(Object.assign(document.createElement('span'), { className: 'lbl', id: hueLbl, textContent: 'Chip colour' }), hue.el);
+      el.append(field('New element label', label), iconField, hueField, field('Tags', tags, 'comma separated'));
+      return { el, focus: label, read: () => {
+        if (!label.value.trim()) throw new UserError('Give the new element a label.');
+        return { kind: 'add', label: label.value.trim(), icon: icon.value, tags: parseTags(tags.value), hue: hue.value };
+      } };
+    }
+    case 'split': case 'clone': case 'remove':
+      el.append(Object.assign(document.createElement('p'), { className: 'note', textContent: { split: 'The target leaves its bubble, carried on in the direction the message travelled.', clone: 'A copy of the target (label, icon, image, tags, colour) appears beside it in the same bubble. Connections are not copied.', remove: 'The target is deleted, with this connection and any others it had.' }[a.kind] }));
+      return { el, focus: null, read: () => ({ kind: a.kind }) };
+    case 'connect': {
+      const from = selectorControl('From', a.from), to = selectorControl('To', a.to);
+      const label = textInput(a.label, 'optional', 60);
+      const head = segmented([['end', 'End'], ['both', 'Both'], ['none', 'None']], a.head, 'Arrow');
+      const dash = segmented([['solid', 'Solid'], ['dashed', 'Dashed'], ['flow', 'Flowing']], a.dash, 'Line');
+      // Elasticity: same controls as the connection panel (a switch, then how loose).
+      const elasticField = document.createElement('div');
+      elasticField.className = 'field';
+      const on = Object.assign(document.createElement('input'), { type: 'checkbox', id: uid('c'), checked: a.elasticity > 0 });
+      const onLabel = Object.assign(document.createElement('label'), { className: 'check', htmlFor: on.id });
+      onLabel.append(on, 'Rubber band');
+      const amount = Object.assign(document.createElement('input'), { type: 'range', id: uid('r'), min: '0.05', max: '1', step: '0.05', value: String(a.elasticity > 0 ? a.elasticity : 0.5), disabled: !(a.elasticity > 0) });
+      amount.setAttribute('aria-label', 'Elasticity amount');
+      const out = Object.assign(document.createElement('output'), { textContent: a.elasticity > 0 ? a.elasticity.toFixed(2) : 'off' });
+      const sync = () => { amount.disabled = !on.checked; out.textContent = on.checked ? Number(amount.value).toFixed(2) : 'off'; };
+      on.addEventListener('change', sync);
+      amount.addEventListener('input', sync);
+      const rangeRow = Object.assign(document.createElement('div'), { className: 'range' });
+      rangeRow.append(amount, out);
+      elasticField.append(Object.assign(document.createElement('span'), { className: 'lbl', textContent: 'Elasticity' }), onLabel, rangeRow);
+      el.append(from.el, to.el, field('New line label', label), labelled('Arrow', head), labelled('Line', dash), elasticField);
+      return { el, focus: null, read: () => ({ kind: 'connect', from: from.read(), to: to.read(), label: label.value.trim(), head: head.value, dash: dash.value, elasticity: on.checked ? Number(amount.value) : 0 }) };
+    }
+    case 'send': {
+      const from = selectorControl('Senders', a.from);
+      const find = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: 'Find senders' });
+      const found = Object.assign(document.createElement('div'), { className: 'found' });
+      found.setAttribute('aria-live', 'polite');
+      const pickLbl = uid('lbl');
+      const picks = Object.assign(document.createElement('div'), { className: 'fchips' });
+      picks.setAttribute('role', 'group'); picks.setAttribute('aria-labelledby', pickLbl);
+      const pickField = document.createElement('div'); pickField.className = 'field';
+      pickField.append(Object.assign(document.createElement('span'), { className: 'lbl', id: pickLbl, textContent: 'Message to send' }), picks);
+      let chosen = a.message;
+      // Run the selector against the stage as it is now, and offer the messages those elements can send.
+      const runSelector = () => {
+        const sel = from.read(false);
+        const ids = sel.kind === 'query' && !filterActive({ q: sel.q, tags: sel.tags, icons: sel.icons }) ? [] : resolveSelector(app.scene, sel, link);
+        const ix = indexOf(app.scene);
+        const names = ids.filter((x) => ix.elements.has(x)).map((x) => ix.elements.get(x).label || 'unnamed');
+        const opts = sendableMessages(app.scene, ids);
+        const all = chosen && !opts.some((o) => o.label === chosen) ? [{ label: chosen, senders: [] }, ...opts] : opts;
+        picks.replaceChildren(...all.map((o) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'fchip';
+          b.setAttribute('aria-pressed', String(o.label === chosen));
+          b.append(Object.assign(document.createElement('b'), { textContent: o.label }), Object.assign(document.createElement('span'), { className: 'from', textContent: o.senders.length ? ` from ${o.senders.join(', ')}` : ' not available from these elements now' }));
+          b.addEventListener('click', () => { chosen = o.label; runSelector(); });
+          return b;
+        }));
+        found.replaceChildren();
+        if (!names.length) found.append('No elements match yet.');
+        else {
+          found.append(`${names.length} match: `, Object.assign(document.createElement('b'), { textContent: names.slice(0, 8).join(', ') + (names.length > 8 ? ` +${names.length - 8}` : '') }), '. ');
+          found.append(opts.length ? `${opts.length} message${opts.length === 1 ? '' : 's'} available.` : 'None of them can send a message yet: add messages to their outgoing connections first.');
+        }
+        pickField.hidden = all.length === 0;
+      };
+      find.addEventListener('click', runSelector);
+      from.onChange(runSelector);
+      el.append(from.el, find, found, pickField);
+      runSelector();
+      return { el, focus: null, read: () => {
+        const sel = from.read();
+        if (!chosen) throw new UserError('Pick which message the senders should send. Use Find senders to see what they can send.');
+        return { kind: 'send', from: sel, message: chosen };
+      } };
+    }
+    default: throw new Error(`bug: no editor for action ${a.kind}`);
+  }
+}
+
+// ---- message editor: label + reorderable step list; each step edits in a dialog ----
+function renderSteps() {
+  const d = app.msgDraft;
+  const list = $('mActs');
+  if (!d) { list.replaceChildren(); return; }
+  list.replaceChildren(...d.actions.map((a, i) => {
+    const li = document.createElement('li');
+    li.dataset.i = String(i);
+    const handle = Object.assign(document.createElement('button'), { type: 'button', className: 'grip' });
+    handle.setAttribute('aria-label', `Step ${i + 1}: drag, or use the up and down arrow keys, to reorder`);
+    handle.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+    handle.addEventListener('pointerdown', (ev) => startStepDrag(ev, li));
+    handle.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown') return;
+      ev.preventDefault();
+      const j = i + (ev.key === 'ArrowUp' ? -1 : 1);
+      if (j < 0 || j >= d.actions.length) return;
+      moveStep(i, j);
+      $('mActs').children[j].querySelector('.grip').focus();
+    });
+    const open = Object.assign(document.createElement('button'), { type: 'button', className: 'sopen' });
+    open.innerHTML = glyph(a.kind);
+    open.append(Object.assign(document.createElement('span'), { textContent: describeAction(a, app.scene) }));
+    open.setAttribute('aria-label', `Edit step ${i + 1}: ${describeAction(a, app.scene)}`);
+    open.addEventListener('click', () => openStepDialog(i));
+    const del = Object.assign(document.createElement('button'), { type: 'button', className: 'sdel', textContent: '✕' });
+    del.setAttribute('aria-label', `Delete step ${i + 1}`);
+    del.disabled = d.actions.length === 1;
+    del.title = d.actions.length === 1 ? 'A message needs at least one step' : 'Delete step';
+    del.addEventListener('click', () => { app.msgDraft = { ...d, actions: d.actions.filter((_, k) => k !== i) }; renderSteps(); });
+    li.append(handle, open, del);
+    return li;
+  }));
+  $('mActAdd').disabled = d.actions.length >= LIMIT_ACTIONS;
+}
+function moveStep(i, j) {
+  const d = app.msgDraft;
+  const actions = [...d.actions];
+  const [x] = actions.splice(i, 1);
+  actions.splice(j, 0, x);
+  app.msgDraft = { ...d, actions };
+  renderSteps();
+}
+/** Pointer drag on a step's grip: the row follows the pointer and the list reorders where it is dropped. */
+function startStepDrag(ev, li) {
+  ev.preventDefault();
+  const list = $('mActs');
+  const from = Number(li.dataset.i);
+  const rows = [...list.children];
+  const mids = rows.map((r) => { const b = r.getBoundingClientRect(); return b.top + b.height / 2; });
+  const y0 = ev.clientY;
+  let to = from;
+  li.classList.add('dragging');
+  li.setPointerCapture(ev.pointerId);
+  const move = (e) => {
+    li.style.transform = `translateY(${e.clientY - y0}px)`;
+    to = mids.filter((m, k) => k !== from && e.clientY > m).length;
+    rows.forEach((r, k) => r.classList.toggle('drop-before', k !== from && k === (to >= from ? to + 1 : to)));
+    list.classList.toggle('drop-end', to === rows.length - 1 && to !== from);
+  };
+  const up = () => {
+    li.removeEventListener('pointermove', move);
+    li.removeEventListener('pointerup', up);
+    li.removeEventListener('pointercancel', up);
+    li.classList.remove('dragging'); li.style.transform = '';
+    rows.forEach((r) => r.classList.remove('drop-before'));
+    list.classList.remove('drop-end');
+    if (to !== from) moveStep(from, to);
+  };
+  li.addEventListener('pointermove', move);
+  li.addEventListener('pointerup', up);
+  li.addEventListener('pointercancel', up);
+}
+
+let stepEdit = null; // { index | null (new), kind, body, original }
+function openStepDialog(index) {
+  const d = app.msgDraft;
+  if (!d) throw new Error('bug: step dialog without a message draft');
+  const link = indexOf(app.scene).links.get(d.linkId);
+  const original = index === null ? DEFAULT_ACTION.add() : d.actions[index];
+  stepEdit = { index, original, kind: original.kind, body: null };
+  $('stepDlgTitle').textContent = index === null ? `Step ${d.actions.length + 1}` : `Step ${index + 1}`;
+  const kinds = $('stepKinds');
+  kinds.replaceChildren(...ACTION_KINDS.map(([k, name]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.kind = k;
+    b.innerHTML = glyph(k);
+    b.append(Object.assign(document.createElement('span'), { textContent: name }));
+    b.addEventListener('click', () => setStepKind(k, link));
+    return b;
+  }));
+  setStepKind(original.kind, link);
+  $('stepDlg').showModal();
+  (stepEdit.body.focus ?? kinds.querySelector('[aria-pressed="true"]')).focus();
+}
+function setStepKind(kind, link) {
+  stepEdit.kind = kind;
+  for (const b of $('stepKinds').children) b.setAttribute('aria-pressed', String(b.dataset.kind === kind));
+  const seed = kind === stepEdit.original.kind ? stepEdit.original : DEFAULT_ACTION[kind]();
+  stepEdit.body = actionBody(seed, link);
+  $('stepBody').replaceChildren(stepEdit.body.el);
+}
+$('stepForm').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  let action;
+  try { action = parseOrThrow(ActionSchema, stepEdit.body.read(), 'Step'); } catch (err) { showError(err); return; }
+  const d = app.msgDraft;
+  const actions = stepEdit.index === null ? [...d.actions, action] : d.actions.map((x, k) => (k === stepEdit.index ? action : x));
+  app.msgDraft = { ...d, actions };
+  $('stepDlg').close();
+  renderSteps();
+});
+$('stepCancel').addEventListener('click', () => $('stepDlg').close());
+$('stepClose').addEventListener('click', () => $('stepDlg').close());
+$('stepDlg').addEventListener('close', () => { stepEdit = null; $('stepBody').replaceChildren(); });
+$('mActAdd').addEventListener('click', () => openStepDialog(null));
+
+function openMessageEditor(linkId, messageId) {
+  const l = indexOf(app.scene).links.get(linkId);
+  if (!l) throw new Error(`bug: editor for missing connection ${linkId}`);
+  const existing = messageId === null ? null : l.messages.find((m) => m.id === messageId);
+  if (messageId !== null && !existing) throw new Error(`bug: editor for missing message ${messageId}`);
+  if (!existing && l.messages.length >= LIMIT_MESSAGES) { showError(`A connection holds up to ${LIMIT_MESSAGES} messages.`); return; }
+  app.msgDraft = { linkId, messageId, actions: existing ? existing.actions : [] };
+  $('msgEdTitle').textContent = existing ? `Edit “${existing.label}”` : 'New message';
+  $('mLabel').value = existing?.label ?? '';
+  renderUI();
+  if (existing) $('mLabel').focus();
+  else openStepDialog(null);
+}
+function closeMessageEditor() { app.msgDraft = null; renderUI(); }
+
+$('msgEd').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const d = app.msgDraft;
+  if (!d) throw new Error('bug: message form submitted with no draft');
+  let msg;
+  try {
+    const label = $('mLabel').value.trim();
+    if (!label) throw new UserError('Give the message a label; it appears on the send button and on the packet.');
+    if (!d.actions.length) throw new UserError('Add at least one step.');
+    msg = parseOrThrow(MessageSchema, { id: d.messageId ?? newId('msg'), label, actions: d.actions }, 'Message');
+  } catch (err) { showError(err); return; }
+  const l = indexOf(app.scene).links.get(d.linkId);
+  const messages = d.messageId === null ? [...l.messages, msg] : l.messages.map((m) => (m.id === d.messageId ? msg : m));
+  if (dispatch({ type: 'updateLink', id: d.linkId, patch: { messages } })) closeMessageEditor();
+});
+$('mCancel').addEventListener('click', closeMessageEditor);
+$('lMsgAdd').addEventListener('click', () => openMessageEditor(selectedLinkId(), null));
+
+let msgDeleteArmed = null;
+function renderMessages() {
+  // Connection panel: its messages, and the editor if it belongs to this connection.
+  const sel = app.selection;
+  const l = sel?.kind === 'link' ? indexOf(app.scene).links.get(sel.id) : null;
+  if (app.msgDraft && (!l || app.msgDraft.linkId !== l.id)) app.msgDraft = null;
+  $('msgEd').hidden = !app.msgDraft;
+  renderSteps();
+  $('lMsgAdd').hidden = !!app.msgDraft;
+  if (l) {
+    const ix = indexOf(app.scene);
+    const from = ix.elements.get(l.from), to = ix.elements.get(l.to);
+    $('lMsgs').replaceChildren(...l.messages.map((m) => {
+      const li = document.createElement('li');
+      const txt = document.createElement('div'); txt.className = 'mtxt';
+      txt.append(Object.assign(document.createElement('b'), { textContent: m.label }), Object.assign(document.createElement('span'), { textContent: `${describeMessage(m, app.scene)} · ${from.label || 'start'} → ${to.label || 'end'}` }));
+      const send = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Send' });
+      send.addEventListener('click', () => sendMessage(l.id, m.id));
+      const edit = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Edit' });
+      edit.addEventListener('click', () => openMessageEditor(l.id, m.id));
+      const armed = msgDeleteArmed === m.id;
+      const del = Object.assign(document.createElement('button'), { type: 'button', textContent: armed ? 'Confirm' : 'Delete', className: armed ? 'armed' : '' });
+      del.setAttribute('aria-label', armed ? `Confirm deleting message ${m.label}` : `Delete message ${m.label}`);
+      del.addEventListener('click', () => {
+        if (msgDeleteArmed !== m.id) {
+          msgDeleteArmed = m.id; renderMessages();
+          setTimeout(() => { if (msgDeleteArmed === m.id) { msgDeleteArmed = null; renderMessages(); } }, 3000);
+          return;
+        }
+        msgDeleteArmed = null;
+        dispatch({ type: 'updateLink', id: l.id, patch: { messages: l.messages.filter((x) => x.id !== m.id) } });
+      });
+      li.append(txt, send, edit, del);
+      return li;
+    }));
+  }
+
+  // Element panel: chip colour.
+  if (sel?.kind === 'element') {
+    const e = indexOf(app.scene).elements.get(sel.id);
+    if (e) for (const b of $('eHues').children) b.setAttribute('aria-pressed', String((b.dataset.hue || null) === e.hue));
+  }
+
+  // Message bar for the selected element (edit and present).
+  const avail = availableMessages();
+  const bar = $('msgbar');
+  const wasHidden = bar.hidden;
+  bar.hidden = avail.length === 0;
+  if (!avail.length) return;
+  const src = indexOf(app.scene).elements.get(app.selection.id);
+  const head = document.createElement('span');
+  head.className = 'from';
+  head.append('From ', Object.assign(document.createElement('b'), { textContent: src.label || 'this element' }));
+  bar.replaceChildren(head, ...avail.map(({ link, msg, target }, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'mbtn';
+    b.title = `${describeMessage(msg, app.scene)}${i < 9 ? ` (key ${i + 1})` : ''}`;
+    if (i < 9) b.append(Object.assign(document.createElement('span'), { className: 'k', textContent: String(i + 1) }));
+    b.insertAdjacentHTML('beforeend', glyph(msg.actions[0].kind));
+    b.append(Object.assign(document.createElement('span'), { textContent: msg.label }), Object.assign(document.createElement('span'), { className: 'to', textContent: `→ ${target.label || 'target'}` }));
+    b.addEventListener('click', () => sendMessage(link.id, msg.id));
+    return b;
+  }));
+  if (wasHidden) { bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = ''; }
+}
+
+(function buildElementHues() {
+  const box = $('eHues');
+  const auto = document.createElement('button');
+  auto.type = 'button'; auto.className = 'swatch auto'; auto.dataset.hue = ''; auto.setAttribute('aria-label', 'Same as the bubble'); auto.title = 'Same as the bubble';
+  auto.addEventListener('click', () => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { hue: null } }));
+  box.append(auto);
+  for (const h of HUES) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'swatch'; b.style.setProperty('--c', `var(--cell-${h})`); b.dataset.hue = h; b.setAttribute('aria-label', h);
+    b.addEventListener('click', () => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { hue: h } }));
+    box.append(b);
+  }
+})();
+
+// ---------- background ----------
+function renderStageControls() {
+  const st = app.scene.stage;
+  $('stGrid').checked = st.grid;
+  $('stCustom').checked = st.color !== null;
+  $('stColor').disabled = st.color === null;
+  $('stOpacity').disabled = st.color === null;
+  if (st.color !== null && document.activeElement !== $('stColor')) $('stColor').value = st.color;
+  if (document.activeElement !== $('stOpacity')) $('stOpacity').value = String(Math.round(st.opacity * 100));
+  $('stOpacityOut').textContent = st.color === null ? 'theme' : `${Math.round(st.opacity * 100)}%`;
+}
+$('stGrid').addEventListener('change', (ev) => dispatch({ type: 'setStage', patch: { grid: ev.target.checked } }));
+$('stCustom').addEventListener('change', (ev) => dispatch({ type: 'setStage', patch: { color: ev.target.checked ? $('stColor').value.toLowerCase() : null } }));
+$('stColor').addEventListener('input', (ev) => dispatch({ type: 'setStage', patch: { color: ev.target.value.toLowerCase() } }));
+$('stOpacity').addEventListener('input', (ev) => dispatch({ type: 'setStage', patch: { opacity: Number(ev.target.value) / 100 } }));
+// Seed the picker with the current theme background so turning on a custom colour starts from what is on screen.
+$('stColor').value = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim().toLowerCase();
+
+// Overlay ink for light and dark backdrops; the same values as the page's light and dark theme tokens.
+const INK = Object.freeze({
+  onLight: { fg: '#17202a', muted: '#566170', surface: '#ffffff', accent: '#2550b8' },
+  onDark: { fg: '#e6ecf2', muted: '#98a5b3', surface: '#151c24', accent: '#7fa5ff' },
+  cellsOnLight: { teal: '#0e9f8e', violet: '#6d4df2', amber: '#d98a0b', rose: '#db3a62', blue: '#2672e8', green: '#2f9a41' },
+  cellsOnDark: { teal: '#2cd3bd', violet: '#a48dff', amber: '#f4b23f', rose: '#ff6e92', blue: '#5e9dff', green: '#5fcb6c' },
+});
+
+// ---------- presenter views strip ----------
+function renderPresentStrip() {
+  const on = app.mode === 'present' && app.views.length > 0;
+  $('pstrip').hidden = !on;
+  if (!on) return;
+  $('pstrip').replaceChildren(...app.views.map((v, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip';
+    b.setAttribute('aria-current', String(v.id === app.activeViewId));
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = String(i + 1);
+    const t = document.createElement('span'); t.textContent = v.name;
+    b.append(n, t);
+    b.addEventListener('click', () => goToView(v.id));
+    return b;
+  }));
+  $('pstrip').querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+function centreWorld() { return { x: app.cam.x, y: app.cam.y }; }
+function addBubbleAt(x, y) {
+  const bid = newId('bb'), eid = newId('el');
+  if (dispatch({ type: 'addBubble', bubble: { id: bid, title: '', hue: nextHue(app.scene), x: Math.round(x), y: Math.round(y), orbit: null, tags: [] }, elements: [{ id: eid, label: 'New', icon: null, imageId: null, tags: [], hue: null }] })) {
+    app.selection = { kind: 'element', id: eid };
+    renderUI();
+    $('eLabel').focus(); $('eLabel').select();
+  }
+}
+function addAround(hubId) {
+  const th = gapAngle(app.scene, app.rt, hubId);
+  const hub = app.rt.bubbles[hubId];
+  const ring = ringRadius(app.scene, hubId);
+  const bid = newId('bb'), eid = newId('el');
+  if (dispatch({ type: 'addBubble', bubble: { id: bid, title: '', hue: nextHue(app.scene), x: Math.round(hub.x + ring * Math.cos(th)), y: Math.round(hub.y + ring * Math.sin(th)), orbit: { hubId }, tags: [] }, elements: [{ id: eid, label: 'New', icon: null, imageId: null, tags: [], hue: null }] })) {
+    app.selection = { kind: 'element', id: eid };
+    renderUI();
+    $('eLabel').focus(); $('eLabel').select();
+  }
+}
+
+$('addBubble').addEventListener('click', () => { const c = centreWorld(); addBubbleAt(c.x + 40, c.y - 30); });
+$('undo').addEventListener('click', undo);
+$('redo').addEventListener('click', redo);
+$('present').addEventListener('click', enterPresent);
+$('exit').addEventListener('click', exitPresent);
+$('prev').addEventListener('click', () => stepView(-1));
+$('next').addEventListener('click', () => stepView(1));
+$('vSave').addEventListener('click', saveView);
+$('vUpdate').addEventListener('click', () => updateView({ scene: freezeScene(app.scene, app.rt), camera: roundCam(app.cam) }));
+$('vLeft').addEventListener('click', () => moveView(-1));
+$('vRight').addEventListener('click', () => moveView(1));
+$('vDel').addEventListener('click', deleteView);
+$('vName').addEventListener('change', (ev) => updateView({ name: ev.target.value.trim().slice(0, 60) || 'Untitled view' }));
+
+$('bTitle').addEventListener('input', (ev) => app.selection && dispatch({ type: 'updateBubble', id: app.selection.id, patch: { title: ev.target.value.slice(0, 40) } }));
+$('bAddEl').addEventListener('click', () => {
+  const eid = newId('el');
+  if (dispatch({ type: 'addElement', bubbleId: app.selection.id, element: { id: eid, label: 'New', icon: null, imageId: null, tags: [], hue: null } })) {
+    app.selection = { kind: 'element', id: eid }; renderUI(); $('eLabel').focus(); $('eLabel').select();
+  }
+});
+$('bAround').addEventListener('click', () => addAround(app.selection.id));
+$('bOrbit').addEventListener('click', () => { app.pick = 'orbit'; renderUI(); });
+$('bUnorbit').addEventListener('click', () => dispatch({ type: 'setOrbit', id: app.selection.id, hubId: null }));
+$('bDel').addEventListener('click', () => dispatch({ type: 'deleteBubble', id: app.selection.id }));
+$('eLabel').addEventListener('input', (ev) => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { label: ev.target.value.slice(0, 60) } }));
+$('eDel').addEventListener('click', () => dispatch({ type: 'deleteElement', id: app.selection.id }));
+function duplicateSelected() {
+  if (app.selection?.kind !== 'element') throw new Error('bug: duplicate without a selected element');
+  const src = app.selection.id;
+  const id = newId('el');
+  if (dispatch({ type: 'duplicateElement', id: src, newId: id }, { spawnFrom: { [id]: src } })) {
+    app.selection = { kind: 'element', id };
+    renderUI();
+  }
+}
+$('eDup').addEventListener('click', duplicateSelected);
+
+const toggleConnect = () => { app.pick = app.pick === 'connect' ? null : 'connect'; renderUI(); };
+$('connect').addEventListener('click', toggleConnect);
+const selectedLinkId = () => {
+  if (app.selection?.kind !== 'link') throw new Error('bug: connection control used without a selected connection');
+  return app.selection.id;
+};
+$('lLabel').addEventListener('input', (ev) => dispatch({ type: 'updateLink', id: selectedLinkId(), patch: { label: ev.target.value.slice(0, 60) } }));
+for (const b of $('lHead').children) b.addEventListener('click', () => dispatch({ type: 'updateLink', id: selectedLinkId(), patch: { head: b.dataset.v } }));
+for (const b of $('lDash').children) b.addEventListener('click', () => dispatch({ type: 'updateLink', id: selectedLinkId(), patch: { dash: b.dataset.v } }));
+$('lElastic').addEventListener('change', (ev) => dispatch({ type: 'updateLink', id: selectedLinkId(), patch: { elasticity: ev.target.checked ? Number($('lElasticity').value) : 0 } }));
+$('lElasticity').addEventListener('input', (ev) => dispatch({ type: 'updateLink', id: selectedLinkId(), patch: { elasticity: Number(ev.target.value) } }));
+$('lReverse').addEventListener('click', () => {
+  const l = indexOf(app.scene).links.get(selectedLinkId());
+  dispatch({ type: 'updateLink', id: l.id, patch: { from: l.to, to: l.from } });
+});
+$('lDel').addEventListener('click', () => dispatch({ type: 'deleteLink', id: selectedLinkId() }));
+$('eNoImg').addEventListener('click', () => dispatch({ type: 'updateElement', id: app.selection.id, patch: { imageId: null } }));
+$('ePull').addEventListener('click', () => {
+  const id = app.selection.id;
+  const e = app.rt.elements[id];
+  const b = app.rt.bubbles[e.bubbleId];
+  const dx = e.x - b.x, dy = e.y - b.y, d = Math.hypot(dx, dy) || 1;
+  const u = d < 1 ? { x: 1, y: 0 } : { x: dx / d, y: dy / d };
+  const dist = bubbleRadius(app.scene, e.bubbleId) + K.SINGLE_R + 90;
+  dispatch({ type: 'detachElement', id, newBubbleId: newId('bb'), x: Math.round(b.x + u.x * dist), y: Math.round(b.y + u.y * dist), hue: nextHue(app.scene) });
+});
+async function uploadImage(file) {
+  if (!app.assets) { showError('Image upload needs edit access to this page on claude.ai.'); return; }
+  const target = app.selection;
+  if (target?.kind !== 'element') return;
+  $('eImgNote').textContent = 'Uploading…';
+  try {
+    const res = await app.assets.upload(file);
+    dispatch({ type: 'updateElement', id: target.id, patch: { imageId: res.id } });
+    $('eImgNote').textContent = '';
+  } catch (err) {
+    $('eImgNote').textContent = '';
+    const why = { too_large: 'The image is over the size limit (20 MB, or 2 MB for SVG).', unsupported_type: 'Use a PNG, JPEG, WebP, GIF or SVG image.', rate_limited: 'Too many uploads at once. Wait a moment and try again.' }[err?.code];
+    showError(why ?? `Upload failed (${err?.code ?? err}).`);
+  }
+}
+$('eUpload').addEventListener('change', (ev) => { const f = ev.target.files?.[0]; ev.target.value = ''; if (f) uploadImage(f); });
+document.addEventListener('paste', (ev) => {
+  if (app.selection?.kind !== 'element') return;
+  const f = [...(ev.clipboardData?.files ?? [])].find((x) => x.type.startsWith('image/'));
+  if (f) { ev.preventDefault(); uploadImage(f); }
+});
+
+// ---------- pointer input ----------
+const ov = $('ov');
+const glc = $('gl');
+const ctx = ov.getContext('2d');
+let renderer = null;
+try { renderer = createMembraneRenderer(glc); } catch (err) { showError(err); }
+let size = { W: 1, H: 1, dpr: 1 };
+function resize() {
+  const r = $('stage').getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  size = { W: Math.max(1, r.width), H: Math.max(1, r.height), dpr };
+  for (const c of [ov, glc]) { c.width = Math.round(size.W * dpr); c.height = Math.round(size.H * dpr); }
+}
+new ResizeObserver(resize).observe($('stage'));
+resize();
+
+const toWorld = (ev) => {
+  const r = ov.getBoundingClientRect();
+  const c = app.rt.camera;
+  return { x: (ev.clientX - r.left - size.W / 2) / c.zoom + c.x, y: (ev.clientY - r.top - size.H / 2) / c.zoom + c.y };
+};
+
+ov.addEventListener('pointerdown', (ev) => {
+  if (ev.button !== 0) return;
+  ov.setPointerCapture(ev.pointerId);
+  const w = toWorld(ev);
+  const hit = hitTest(app.rt, app.scene, w.x, w.y);
+  const ix = indexOf(app.scene);
+  if (app.pick === 'orbit') {
+    const target = hit?.kind === 'element' ? { kind: 'bubble', id: ix.elements.get(hit.id).bubbleId } : hit;
+    app.pick = null;
+    if (target && app.selection?.kind === 'bubble' && target.id !== app.selection.id) dispatch({ type: 'setOrbit', id: app.selection.id, hubId: target.id });
+    renderUI();
+    return;
+  }
+  const base = { startX: ev.clientX, startY: ev.clientY, moved: false, hit };
+  if (app.pick === 'connect' && hit?.kind === 'element') {
+    app.drag = { ...base, kind: 'link', fromId: hit.id, x: w.x, y: w.y, targetId: null };
+    return;
+  }
+  if (!hit) {
+    app.drag = { ...base, kind: 'pan', cam0: { ...app.cam } };
+  } else if (hit.kind === 'element') {
+    const e = ix.elements.get(hit.id);
+    const b = ix.bubbles.get(e.bubbleId);
+    if (ix.members.get(b.id).length === 1 && !b.title) {
+      const body = app.rt.bubbles[b.id];
+      app.drag = { ...base, kind: 'bubble', id: b.id, offX: body.x - w.x, offY: body.y - w.y, x: body.x, y: body.y };
+    } else {
+      const body = app.rt.elements[hit.id];
+      app.drag = { ...base, kind: 'element', id: hit.id, offX: body.x - w.x, offY: body.y - w.y, x: body.x, y: body.y, tether: true };
+    }
+  } else if (hit.kind === 'link') {
+    const l = ix.links.get(hit.id);
+    const rest = {};
+    for (const eid of [l.from, l.to]) {
+      const b = app.rt.bubbles[ix.elements.get(eid).bubbleId];
+      rest[eid] = Math.hypot(w.x - b.x, w.y - b.y);
+    }
+    app.drag = { ...base, kind: 'rope', id: hit.id, x: w.x, y: w.y, rest };
+  } else if (hit.kind === 'bubble') {
+    const body = app.rt.bubbles[hit.id];
+    app.drag = { ...base, kind: 'bubble', id: hit.id, offX: body.x - w.x, offY: body.y - w.y, x: body.x, y: body.y };
+  } else {
+    throw new Error(`bug: unhandled hit kind ${hit.kind}`);
+  }
+});
+
+ov.addEventListener('pointermove', (ev) => {
+  const d = app.drag;
+  const w = toWorld(ev);
+  if (!d) {
+    const hit = hitTest(app.rt, app.scene, w.x, w.y);
+    ov.style.cursor = app.pick ? 'crosshair' : hit ? 'grab' : 'default';
+    return;
+  }
+  if (!d.moved && Math.hypot(ev.clientX - d.startX, ev.clientY - d.startY) > 4) d.moved = true;
+  if (!d.moved) return;
+  ov.style.cursor = d.kind === 'pan' ? 'grabbing' : 'grabbing';
+  if (d.kind === 'pan') {
+    const z = app.cam.zoom;
+    app.cam = { ...d.cam0, x: d.cam0.x - (ev.clientX - d.startX) / z, y: d.cam0.y - (ev.clientY - d.startY) / z };
+    app.rt = { ...app.rt, camera: { ...app.cam } };
+    return;
+  }
+  if (d.kind === 'link') {
+    d.x = w.x; d.y = w.y;
+    d.targetId = elementAt(app.rt, app.scene, w.x, w.y, d.fromId);
+    return;
+  }
+  if (d.kind === 'rope') { d.x = w.x; d.y = w.y; return; }
+  d.x = w.x + d.offX; d.y = w.y + d.offY;
+  if (d.kind === 'element' && d.tether) {
+    if (detachGap(app.scene, app.rt, d.id, d.x, d.y) > K.DETACH_GAP) {
+      const nb = newId('bb');
+      if (dispatch({ type: 'detachElement', id: d.id, newBubbleId: nb, x: Math.round(d.x), y: Math.round(d.y), hue: nextHue(app.scene) })) {
+        app.drag = { ...d, kind: 'bubble', id: nb, tether: false, detachedFrom: d.id };
+        return;
+      }
+      d.tether = false;
+    }
+    const e = indexOf(app.scene).elements.get(d.id);
+    app.dropTargetId = bubbleAt(app.rt, app.scene, w.x, w.y, e.bubbleId)?.id ?? null;
+  } else if (d.kind === 'bubble') {
+    app.dropTargetId = bubbleAt(app.rt, app.scene, w.x, w.y, d.id)?.id ?? null;
+  }
+});
+
+function endDrag(ev) {
+  const d = app.drag;
+  if (!d) return;
+  app.drag = null;
+  const target = app.dropTargetId;
+  app.dropTargetId = null;
+  ov.style.cursor = 'default';
+  if (!d.moved) {
+    if (d.kind === 'pan') app.selection = null;
+    else app.selection = app.mode === 'edit' ? d.hit : d.hit?.kind === 'element' ? d.hit : null;
+    renderUI();
+    return;
+  }
+  if (d.kind === 'pan') { scheduleSave(); return; }
+  if (d.kind === 'rope') {
+    // Keep the connected bubbles where the pull left them (bubbles in a ring return to it).
+    const ix = indexOf(app.scene);
+    const l = ix.links.get(d.id);
+    if (!l) return;
+    const ids = [...new Set([l.from, l.to].map((eid) => ix.elements.get(eid).bubbleId))];
+    const cmds = ids.filter((bid) => !ix.bubbles.get(bid).orbit).map((bid) => ({ type: 'setHome', id: bid, x: Math.round(app.rt.bubbles[bid].x), y: Math.round(app.rt.bubbles[bid].y) }));
+    if (app.mode === 'edit') app.selection = { kind: 'link', id: d.id };
+    if (cmds.length) dispatch({ type: 'batch', cmds });
+    renderUI();
+    return;
+  }
+  if (d.kind === 'link') {
+    if (!d.targetId) return;
+    const id = newId('ln');
+    if (dispatch({ type: 'addLink', link: { id, from: d.fromId, to: d.targetId, label: '', head: 'end', dash: 'solid', elasticity: 0, tags: [], messages: [] } })) {
+      app.selection = { kind: 'link', id };
+      renderUI();
+    }
+    return;
+  }
+  if (d.kind === 'element') {
+    if (target) dispatch({ type: 'moveElement', id: d.id, toBubbleId: target });
+    return;
+  }
+  if (d.kind === 'bubble') {
+    if (target) {
+      dispatch({ type: 'mergeBubble', fromId: d.id, intoId: target, titleElementId: newId('el') });
+      return;
+    }
+    const sb = indexOf(app.scene).bubbles.get(d.id);
+    const cmds = [{ type: 'setHome', id: d.id, x: Math.round(d.x), y: Math.round(d.y) }];
+    if (sb.orbit) {
+      const hub = app.rt.bubbles[sb.orbit.hubId];
+      if (Math.hypot(d.x - hub.x, d.y - hub.y) > ringRadius(app.scene, sb.orbit.hubId) * 1.6) cmds.push({ type: 'setOrbit', id: d.id, hubId: null });
+    }
+    dispatch({ type: 'batch', cmds });
+  }
+}
+ov.addEventListener('pointerup', endDrag);
+ov.addEventListener('pointercancel', endDrag);
+ov.addEventListener('dblclick', (ev) => {
+  if (app.mode !== 'edit') return;
+  const w = toWorld(ev);
+  const hit = hitTest(app.rt, app.scene, w.x, w.y);
+  if (!hit) addBubbleAt(w.x, w.y);
+  else if (hit.kind === 'element') { app.selection = hit; renderUI(); $('eLabel').focus(); $('eLabel').select(); }
+  else if (hit.kind === 'link') { app.selection = hit; renderUI(); $('lLabel').focus(); }
+  else { app.selection = hit; renderUI(); $('bTitle').focus(); }
+});
+ov.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  const r = ov.getBoundingClientRect();
+  const before = toWorld(ev);
+  const zoom = clamp(app.cam.zoom * Math.exp(-ev.deltaY * 0.0015), 0.3, 2.5);
+  const mx = ev.clientX - r.left - size.W / 2, my = ev.clientY - r.top - size.H / 2;
+  app.cam = { x: before.x - mx / zoom, y: before.y - my / zoom, zoom };
+  app.rt = { ...app.rt, camera: { ...app.cam } };
+  scheduleSave();
+}, { passive: false });
+
+document.addEventListener('keydown', (ev) => {
+  if ($('stepDlg').open) return; // the dialog handles its own keys (Esc closes it)
+  const typing = ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement;
+  if (app.mode === 'present') {
+    if (/^[1-9]$/.test(ev.key) && availableMessages()[Number(ev.key) - 1]) { ev.preventDefault(); const m = availableMessages()[Number(ev.key) - 1]; sendMessage(m.link.id, m.msg.id); }
+    else if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(ev.key)) { ev.preventDefault(); stepView(1); }
+    else if (['ArrowLeft', 'PageUp'].includes(ev.key)) { ev.preventDefault(); stepView(-1); }
+    else if (ev.key === 'Escape') exitPresent();
+    return;
+  }
+  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 's') {
+    ev.preventDefault();
+    if (app.mode === 'edit' && app.db && app.canEdit) {
+      if (app.views.some((v) => v.id === app.activeViewId)) updateView({ scene: freezeScene(app.scene, app.rt), camera: roundCam(app.cam) });
+      else saveView();
+    }
+    return;
+  }
+  if (typing) {
+    if (ev.key === 'Escape') { ev.target.blur(); if (app.filterOpen) { app.filterOpen = false; renderFilter(); } }
+    return;
+  }
+  if (ev.key === '/') { ev.preventDefault(); $('fQuery').focus(); return; }
+  if (ev.key === 'Escape' && app.filterOpen) { app.filterOpen = false; renderFilter(); return; }
+  const mod = ev.metaKey || ev.ctrlKey;
+  if (mod && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.shiftKey ? redo() : undo(); }
+  else if (mod && ev.key.toLowerCase() === 'y') { ev.preventDefault(); redo(); }
+  else if (mod && ev.key.toLowerCase() === 'd' && app.selection?.kind === 'element') { ev.preventDefault(); duplicateSelected(); }
+  else if (ev.key === 'Escape') { app.pick = null; app.selection = null; renderUI(); }
+  else if ((ev.key === 'Delete' || ev.key === 'Backspace') && app.selection) {
+    ev.preventDefault();
+    const type = { bubble: 'deleteBubble', element: 'deleteElement', link: 'deleteLink' }[app.selection.kind];
+    if (!type) throw new Error(`bug: cannot delete selection kind ${app.selection.kind}`);
+    dispatch({ type, id: app.selection.id });
+  }
+  else if (!mod && ev.key.toLowerCase() === 'c') toggleConnect();
+});
+
+// ---------- theme tracking ----------
+const refreshTheme = () => { app.theme = readTheme(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refreshTheme);
+new MutationObserver(refreshTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// ---------- loop ----------
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let last = performance.now();
+let acc = 0;
+let loopFailed = false;
+function frame(now) {
+  if (loopFailed) return;
+  try {
+    acc = Math.min(acc + (now - last) / 1000, 0.1);
+    last = now;
+    const input = {
+      drag: !app.drag || !app.drag.moved ? null
+        : app.drag.kind === 'element' || app.drag.kind === 'bubble' ? { kind: app.drag.kind, id: app.drag.id, x: app.drag.x, y: app.drag.y, tether: !!app.drag.tether }
+        : app.drag.kind === 'rope' ? { kind: 'rope', id: app.drag.id, x: app.drag.x, y: app.drag.y, rest: app.drag.rest }
+        : null,
+      cameraTarget: app.cam,
+      match: filterMatch(app.scene, app.filter),
+    };
+    while (acc >= K.DT) {
+      app.rt = step(app.rt, app.scene, input, K.DT);
+      if (reduced) app.rt = { ...app.rt, bubbles: Object.fromEntries(Object.entries(app.rt.bubbles).map(([k, b]) => [k, { ...b, w2: b.w2 * 0.3, w3: b.w3 * 0.3 }])) };
+      acc -= K.DT;
+    }
+    deliverArrivedPackets();
+    const st = app.rt.stage;
+    const bg = app.theme.bg.map((v, i) => v + (st.rgb[i] - v) * st.a);
+    const darkBg = 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2] < 0.45;
+    // Ink follows the actual backdrop, not the theme, so a dark custom colour in light mode (or the reverse) stays readable.
+    const ink = darkBg ? INK.onDark : INK.onLight;
+    const backdrop = { ...app.theme, bg, grid: hexRgb(ink.fg), gridA: (darkBg ? 0.09 : 0.13) * st.grid, dark: darkBg ? 1 : 0 };
+    if (renderer) renderer.draw(buildFrame(app.rt, app.scene, { ...size, theme: { ...app.theme, cells: Object.fromEntries(HUES.map((h) => [h, hexRgb((darkBg ? INK.cellsOnDark : INK.cellsOnLight)[h])])) }, dragBubbleId: input.drag?.kind === 'bubble' ? input.drag.id : null }), backdrop);
+    drawOverlay(ctx, app.rt, app.scene, { ...size, theme: { ...app.theme, css: { ...app.theme.css, ...ink, cells: darkBg ? INK.cellsOnDark : INK.cellsOnLight } }, mode: app.mode, selection: app.selection, dropTargetId: app.dropTargetId, pickMode: app.pick === 'orbit', packets: app.packets, pendingLink: app.drag?.kind === 'link' && app.drag.moved ? { fromId: app.drag.fromId, x: app.drag.x, y: app.drag.y, targetId: app.drag.targetId } : null });
+  } catch (err) {
+    loopFailed = true;
+    showError(err);
+    return;
+  }
+  requestAnimationFrame(frame);
+}
+renderUI();
+setStatus();
+requestAnimationFrame(frame);
+connect().catch(showError);
+</script>
+
+</body></html>
