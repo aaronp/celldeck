@@ -1155,12 +1155,18 @@ const iconSvg = (key) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
   for (const k of ICON_KEYS) {
     const b = document.createElement('button');
     b.type = 'button'; b.dataset.icon = k; b.setAttribute('aria-label', ICONS[k][0]); b.title = ICONS[k][0]; b.innerHTML = iconSvg(k);
+    // Keep focus (and the selection) in the label while the label is being edited, so clicking icons can retitle it.
+    b.addEventListener('mousedown', (ev) => { if (document.activeElement === $('eLabel')) ev.preventDefault(); });
     b.addEventListener('click', () => {
       if (!app.selection) return;
       const e = indexOf(app.scene).elements.get(app.selection.id);
+      const input = $('eLabel');
+      // A fully selected label (e.g. "New" on a fresh element) is a placeholder: the icon's name replaces it.
+      const allSelected = document.activeElement === input && input.value !== '' && input.selectionStart === 0 && input.selectionEnd === input.value.length;
       const patch = { icon: k };
-      if (!e.label || Object.values(ICONS).some(([n]) => n === e.label)) patch.label = ICONS[k][0];
+      if (allSelected || !e.label || Object.values(ICONS).some(([n]) => n === e.label)) patch.label = ICONS[k][0];
       dispatch({ type: 'updateElement', id: app.selection.id, patch });
+      if (allSelected) { input.value = patch.label; input.select(); }
     });
     icons.append(b);
   }
