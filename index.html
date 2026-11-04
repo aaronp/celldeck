@@ -64,10 +64,11 @@ button { cursor: pointer; }
 .btn.primary:hover { background: var(--fg); opacity: 0.88; }
 .btn.danger { color: var(--danger); }
 .btn.icon { padding: 0; width: 36px; justify-content: center; }
-.split { display: inline-flex; }
-.split .btn:first-child:not(:last-child) { border-radius: 8px 0 0 8px; }
-.split .btn + .btn { border-left: 0; border-radius: 0 8px 8px 0; padding: 0; width: 20px; justify-content: center; }
-.split .btn + .btn svg { width: 14px; height: 14px; }
+.menu { position: fixed; inset: auto; margin: 0; min-width: 200px; padding: 6px; background: var(--surface); color: inherit; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgb(0 0 0 / 0.14); }
+.menu:popover-open { display: flex; flex-direction: column; }
+.menu button { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; text-align: left; }
+.menu button:hover, .menu button:focus-visible { background: var(--surface-2); }
+.menu svg { width: 16px; height: 16px; flex: none; }
 
 .stage { grid-area: stage; position: relative; overflow: hidden; min-height: 0; }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -288,6 +289,13 @@ button { cursor: pointer; }
       <svg viewBox="0 0 26 22" aria-hidden="true"><circle cx="9" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="19.5" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
       Cell Deck
     </div>
+    <button class="btn icon" id="menuBtn" type="button" popovertarget="fileMenu" aria-label="File menu" title="File menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="menu" id="fileMenu" popover role="menu" aria-label="File">
+      <button type="button" role="menuitem" id="newBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zM14 3v5h5M12 11v6M9 14h6"/></svg>New</button>
+      <button type="button" role="menuitem" id="openBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open…</button>
+      <button type="button" role="menuitem" id="downloadBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span id="downloadTxt">Download deck.json</span></button>
+      <button type="button" role="menuitem" id="saveAsBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Save as…</button>
+    </div>
     <button class="btn" id="addBubble" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add bubble</button>
     <button class="btn" id="connect" type="button" aria-pressed="false" title="Connect (C)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="6" r="2.5"/><path d="M7 16.5C10 14 12 10 16.8 7.5"/></svg>Connect</button>
     <button class="btn icon" id="undo" type="button" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
@@ -307,8 +315,6 @@ button { cursor: pointer; }
         <div class="fchips" id="fIcons" role="group" aria-labelledby="fIconsLbl"></div>
       </div>
     </div>
-    <button class="btn" id="openBtn" type="button" title="Open a deck from a file or URL"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open</button>
-    <span class="split"><button class="btn icon" id="downloadBtn" type="button" aria-label="Download deck.json" title="Download deck.json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button><button class="btn" id="saveAsBtn" type="button" aria-label="Save as…" title="Save as…"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button></span>
     <div class="spacer"></div>
     <span class="status" id="status" role="status">Starting…</span>
     <button class="btn primary" id="present" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Present</button>
@@ -1142,8 +1148,7 @@ const canSaveAs = 'showSaveFilePicker' in window;
 const JSON_TYPES = [{ description: 'Cell Deck', accept: { 'application/json': ['.json'] } }];
 function setFileHandle(h) {
   app.fileHandle = h ?? null;
-  const t = app.fileHandle ? `Save to ${app.fileHandle.name}` : 'Download deck.json';
-  $('downloadBtn').title = t; $('downloadBtn').setAttribute('aria-label', t);
+  $('downloadTxt').textContent = app.fileHandle ? `Save to ${app.fileHandle.name}` : 'Download deck.json';
 }
 async function downloadDeck(saveAs = false) {
   if (app.mode === 'edit') saveWorking();
@@ -2178,6 +2183,14 @@ if ('showOpenFilePicker' in window) $('openFileLbl').addEventListener('click', a
 $('saveAsBtn').addEventListener('click', () => downloadDeck(true));
 $('openBtn').addEventListener('click', () => { openError(''); $('openDlg').showModal(); });
 $('downloadBtn').addEventListener('click', () => downloadDeck());
+$('newBtn').addEventListener('click', () => { if (openDeck(EMPTY_DECK)) { setFileHandle(null); app.downloadName = 'deck.json'; } });
+// Popovers sit in the top layer, so place the menu under its button; any click inside closes it.
+$('fileMenu').addEventListener('toggle', (ev) => {
+  if (ev.newState !== 'open') return;
+  const r = $('menuBtn').getBoundingClientRect();
+  Object.assign($('fileMenu').style, { top: `${r.bottom + 6}px`, left: `${r.left}px` });
+});
+$('fileMenu').addEventListener('click', (ev) => { if (ev.target.closest('button')) $('fileMenu').hidePopover(); });
 $('openClose').addEventListener('click', () => $('openDlg').close());
 $('openFile').addEventListener('change', (ev) => { openFileDeck(ev.target.files[0]); ev.target.value = ''; });
 $('openForm').addEventListener('submit', async (ev) => {
