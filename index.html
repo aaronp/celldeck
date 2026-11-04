@@ -125,7 +125,7 @@ button { cursor: pointer; }
 .bgrow { display: flex; align-items: center; gap: 10px; }
 .bgrow .range { flex: 1; min-width: 0; }
 #stColor { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); flex: none; }
-#stColor:disabled, #stOpacity:disabled { opacity: 0.45; }
+#stOpacity:disabled { opacity: 0.45; }
 /* Present-mode top row: the view strip takes what is left of the width and scrolls; share/exit never shrink. */
 .ptopbar { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; gap: 12px; pointer-events: none; }
 .ptopbar > * { pointer-events: auto; }
@@ -350,9 +350,9 @@ button { cursor: pointer; }
       <h2>Background</h2>
       <div class="field" style="margin:12px 0 20px">
         <label class="check" for="stGrid"><input type="checkbox" id="stGrid">Dot grid</label>
-        <label class="check" for="stCustom"><input type="checkbox" id="stCustom">Custom colour</label>
+        <label for="stColor">Background colour</label>
         <div class="bgrow">
-          <input type="color" id="stColor" aria-label="Background colour">
+          <input type="color" id="stColor">
           <div class="range"><input type="range" id="stOpacity" min="0" max="100" step="5" aria-label="Background colour strength"><output id="stOpacityOut" for="stOpacity"></output></div>
         </div>
       </div>
@@ -2183,7 +2183,7 @@ if ('showOpenFilePicker' in window) $('openFileLbl').addEventListener('click', a
 $('saveAsBtn').addEventListener('click', () => downloadDeck(true));
 $('openBtn').addEventListener('click', () => { openError(''); $('openDlg').showModal(); });
 $('downloadBtn').addEventListener('click', () => downloadDeck());
-$('newBtn').addEventListener('click', () => { if (openDeck(EMPTY_DECK)) { setFileHandle(null); app.downloadName = 'deck.json'; } });
+$('newBtn').addEventListener('click', () => { if (openDeck({ ...EMPTY_DECK, scene: { ...EMPTY_DECK.scene, bubbles: [], elements: [], links: [] } })) { setFileHandle(null); app.downloadName = 'deck.json'; } });
 // Popovers sit in the top layer, so place the menu under its button; any click inside closes it.
 $('fileMenu').addEventListener('toggle', (ev) => {
   if (ev.newState !== 'open') return;
@@ -2362,19 +2362,16 @@ function renderStageControls() {
   const st = app.scene.stage;
   syncRich('stDesc', `stage:${app.activeViewId}`, st);
   $('stGrid').checked = st.grid;
-  $('stCustom').checked = st.color !== null;
-  $('stColor').disabled = st.color === null;
   $('stOpacity').disabled = st.color === null;
-  if (st.color !== null && document.activeElement !== $('stColor')) $('stColor').value = st.color;
+  if (document.activeElement !== $('stColor')) $('stColor').value = st.color ?? themeBg();
   if (document.activeElement !== $('stOpacity')) $('stOpacity').value = String(Math.round(st.opacity * 100));
   $('stOpacityOut').textContent = st.color === null ? 'theme' : `${Math.round(st.opacity * 100)}%`;
 }
 $('stGrid').addEventListener('change', (ev) => dispatch({ type: 'setStage', patch: { grid: ev.target.checked } }));
-$('stCustom').addEventListener('change', (ev) => dispatch({ type: 'setStage', patch: { color: ev.target.checked ? $('stColor').value.toLowerCase() : null } }));
-$('stColor').addEventListener('input', (ev) => dispatch({ type: 'setStage', patch: { color: ev.target.value.toLowerCase() } }));
+// The picker shows the theme background when the stage has no colour; picking that colour back means none again.
+const themeBg = () => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim().toLowerCase();
+$('stColor').addEventListener('input', (ev) => { const c = ev.target.value.toLowerCase(); dispatch({ type: 'setStage', patch: { color: c === themeBg() ? null : c } }); });
 $('stOpacity').addEventListener('input', (ev) => dispatch({ type: 'setStage', patch: { opacity: Number(ev.target.value) / 100 } }));
-// Seed the picker with the current theme background so turning on a custom colour starts from what is on screen.
-$('stColor').value = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim().toLowerCase();
 
 // Overlay ink for light and dark backdrops; the same values as the page's light and dark theme tokens.
 const INK = Object.freeze({

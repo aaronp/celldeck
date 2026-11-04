@@ -8,7 +8,8 @@ node_modules: package-lock.json
 test: node_modules
 	npm test
 
-# No build step: serve the repo as GitHub Pages does, so ?src=examples/... works.
-dev:
+# No build step: Vite serves the repo as-is (so ?src=examples/... works) and reloads on save.
+# Dev only: Vite resolves @sinclair/typebox from node_modules instead of index.html's CDN import map.
+dev: node_modules
 	@echo "Example: http://localhost:$(PORT)/?src=examples/acme-architecture/deck.json&view=v-pulled-apart"
-	python3 -m http.server $(PORT)
+	bunx vite@7 --port $(PORT) --strictPort
