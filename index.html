@@ -2455,7 +2455,18 @@ function addAround(hubId) {
   }
 }
 
-$('addBubble').addEventListener('click', () => { const c = centreWorld(); addBubbleAt(c.x + 40, c.y - 30); });
+/** Nearest spot to (x, y), spiralling out, where a one-element bubble clears every bubble on the stage. */
+function freeSpot(x, y) {
+  const r = slotLayout(1).R, live = Object.values(app.rt.bubbles).filter((b) => !b.dying);
+  // ponytail: O(tries × bubbles) spiral scan; fine for the bubble limit.
+  for (let i = 0; i < 2000; i++) {
+    const d = 12 * Math.sqrt(i), th = i * 2.39996; // golden-angle spiral
+    const p = { x: x + d * Math.cos(th), y: y + d * Math.sin(th) };
+    if (live.every((b) => Math.hypot(p.x - b.x, p.y - b.y) >= bubbleRadius(app.scene, b.id) + r + 24)) return p; // target radius: b.r may still be growing
+  }
+  return { x, y };
+}
+$('addBubble').addEventListener('click', () => { const c = centreWorld(), p = freeSpot(c.x, c.y); addBubbleAt(p.x, p.y); });
 $('undo').addEventListener('click', undo);
 $('redo').addEventListener('click', redo);
 $('present').addEventListener('click', enterPresent);
