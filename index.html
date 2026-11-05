@@ -189,7 +189,9 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
 .err { margin: 0; color: var(--danger); font-size: 13px; }
 .mhead h2 { margin: 0; font-family: var(--font-display); font-size: 18px; }
 .mbody { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
-.mfoot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.mfoot { display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.mfoot .err { margin-right: auto; }
+.btn[aria-disabled="true"] { opacity: 0.45; } /* still clickable: says what's missing */
 .kinds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .kinds button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); font-weight: 500; font-size: 13px; text-align: left; }
 .kinds button svg { color: var(--accent); flex: none; }
@@ -534,11 +536,11 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
     <form id="stepForm">
       <header class="mhead"><h2 id="stepDlgTitle">Step</h2><button type="button" class="btn icon" id="stepClose" aria-label="Close without saving"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
       <div class="mbody">
-        <div class="field" id="stepMsgField" hidden><label for="stepMsgLabel">Message label</label><input type="text" id="stepMsgLabel" maxlength="40" placeholder="e.g. provision DB" autocomplete="off"></div>
+        <div class="field" id="stepMsgField" hidden><label for="stepMsgLabel">Message label</label><input type="text" id="stepMsgLabel" maxlength="40" placeholder="e.g. provision DB" autocomplete="off" aria-describedby="stepMsgErr"><p class="err" id="stepMsgErr" hidden>Label is required.</p></div>
         <div class="field"><span class="lbl" id="stepKindsLbl">What happens</span><div class="kinds" id="stepKinds" role="group" aria-labelledby="stepKindsLbl"></div></div>
         <div id="stepBody"></div>
       </div>
-      <footer class="mfoot"><button type="button" class="btn" id="stepCancel">Cancel</button><button type="submit" class="btn primary" id="stepSave">Save step</button></footer>
+      <footer class="mfoot"><p class="err" id="stepErr" role="alert" hidden></p><button type="button" class="btn" id="stepCancel">Cancel</button><button type="submit" class="btn primary" id="stepSave">Save step</button></footer>
     </form>
   </dialog>
 
@@ -1108,6 +1110,8 @@ const app = {
 function showError(err) {
   const msg = err instanceof Error ? err.message : String(err);
   console.error(err);
+  // The banner sits behind an open modal, so the step dialog shows its own problems.
+  if ($('stepDlg').open) { $('stepErr').textContent = msg; $('stepErr').hidden = false; return; }
   $('bannerText').textContent = msg;
   $('banner').hidden = false;
 }
@@ -2249,6 +2253,7 @@ function openStepDialog(index, quick = false) {
   $('stepMsgField').hidden = !quick;
   $('stepMsgLabel').value = '';
   $('stepSave').textContent = quick ? 'Save' : 'Save step';
+  stepProblem(null); syncStepSave();
   const kinds = $('stepKinds');
   kinds.replaceChildren(...ACTION_KINDS.map(([k, name]) => {
     const b = document.createElement('button');
@@ -2273,12 +2278,21 @@ function setStepKind(kind, link) {
     ? [Object.assign(document.createElement('p'), { className: 'note', textContent: `This message's fields: ${fields.map((f) => `$${f}`).join(', ')}. Use them in the text boxes and tags below.` })] : [];
   $('stepBody').replaceChildren(...hint, stepEdit.body.el);
 }
+// Problems are shown in the dialog, not in the app bar behind it.
+const stepProblem = (err) => { $('stepErr').hidden = !err; $('stepErr').textContent = err ? err.message ?? String(err) : ''; };
+const needsLabel = () => !!stepEdit?.quick && !$('stepMsgLabel').value.trim();
+function syncStepSave() {
+  $('stepSave').setAttribute('aria-disabled', String(needsLabel()));
+  if (!needsLabel()) $('stepMsgErr').hidden = true;
+}
+$('stepMsgLabel').addEventListener('input', syncStepSave);
+$('stepForm').addEventListener('input', () => stepProblem(null));
 $('stepForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
   const quick = stepEdit.quick;
-  if (quick && !$('stepMsgLabel').value.trim()) { showError(new UserError('Give the message a label; it appears on the send button and on the packet.')); $('stepMsgLabel').focus(); return; }
+  if (needsLabel()) { $('stepMsgErr').hidden = false; $('stepMsgLabel').focus(); return; }
   let action;
-  try { action = parseOrThrow(ActionSchema, stepEdit.body.read(), 'Step'); } catch (err) { showError(err); return; }
+  try { action = parseOrThrow(ActionSchema, stepEdit.body.read(), 'Step'); } catch (err) { stepProblem(err); return; }
   const d = app.msgDraft;
   const actions = stepEdit.index === null ? [...d.actions, action] : d.actions.map((x, k) => (k === stepEdit.index ? action : x));
   app.msgDraft = { ...d, actions };
