@@ -76,6 +76,14 @@ button { cursor: pointer; }
 .menu button { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; text-align: left; }
 .menu button:hover, .menu button:focus-visible { background: var(--surface-2); }
 .menu svg { width: 16px; height: 16px; flex: none; }
+.split { display: inline-flex; }
+body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 2px; } /* ⌘/Ctrl shortcut letters */
+.split > .btn:first-child { border-radius: 8px 0 0 8px; }
+.split > .btn + .btn { border-radius: 0 8px 8px 0; border-left: 0; width: 30px; } /* the first button's right border is the separator */
+.addmenu { width: min(320px, calc(100vw - 32px)); padding: 12px; gap: 12px; }
+.addmenu .icons button { display: grid; justify-content: center; min-height: 36px; padding: 0; border: 1px solid transparent; background: var(--surface-2); }
+.addmenu .icons button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--surface); }
+.addmenu .btn.primary { justify-content: center; }
 
 .stage { grid-area: stage; position: relative; overflow: hidden; min-height: 0; }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -303,8 +311,16 @@ button { cursor: pointer; }
       <button type="button" role="menuitem" id="downloadBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span id="downloadTxt">Download deck.json</span></button>
       <button type="button" role="menuitem" id="saveAsBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Save as…</button>
     </div>
-    <button class="btn" id="addBubble" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add bubble</button>
-    <button class="btn" id="connect" type="button" aria-pressed="false" title="Connect (C)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="6" r="2.5"/><path d="M7 16.5C10 14 12 10 16.8 7.5"/></svg>Connect</button>
+    <div class="split">
+      <button class="btn" id="addBubble" type="button" title="Add bubble (⌘B)" aria-keyshortcuts="Meta+B Control+B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add <span class="mn">b</span>ubble</span></button>
+      <button class="btn icon" id="addMore" type="button" popovertarget="addMenu" aria-label="Label and icon for new bubbles" title="Label and icon for new bubbles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
+    </div>
+    <div class="menu addmenu" id="addMenu" popover aria-label="New bubble">
+      <div class="field"><label for="nbLabel">Label</label><input type="text" id="nbLabel" maxlength="60" placeholder="New" autocomplete="off"></div>
+      <div class="field"><span class="lbl" id="nbIconLbl">Icon</span><div class="icons" id="nbIcons" role="group" aria-labelledby="nbIconLbl"></div></div>
+      <button class="btn primary" id="nbAdd" type="button">Add bubble</button>
+    </div>
+    <button class="btn" id="connect" type="button" aria-pressed="false" title="Connect (C or ⌘E)" aria-keyshortcuts="C Meta+E Control+E"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="6" r="2.5"/><path d="M7 16.5C10 14 12 10 16.8 7.5"/></svg><span>Conn<span class="mn">e</span>ct</span></button>
     <button class="btn icon" id="undo" type="button" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
     <button class="btn icon" id="redo" type="button" aria-label="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
     <div class="filter" id="filterWrap" role="search">
@@ -2514,10 +2530,41 @@ function renderPresentStrip() {
   $('pstrip').querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
+// Label and icon that new bubbles start with; set from the Add bubble drop-down and remembered in this browser.
+let newLook = (() => { try { const v = JSON.parse(localStorage.getItem('celldeck.newLook')); if (v && typeof v.label === 'string' && (v.icon === null || ICON_KEYS.includes(v.icon))) return v; } catch {} return { label: '', icon: null }; })();
+const newElementLook = () => ({ label: newLook.label.trim() || (newLook.icon ? '' : 'New'), icon: newLook.icon });
+function setNewLook(patch) {
+  newLook = { ...newLook, ...patch };
+  try { localStorage.setItem('celldeck.newLook', JSON.stringify(newLook)); } catch {}
+  for (const b of $('nbIcons').children) b.setAttribute('aria-pressed', String((b.dataset.icon || null) === newLook.icon));
+}
+(function buildAddMenu() {
+  const grid = $('nbIcons');
+  for (const k of [null, ...ICON_KEYS]) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.icon = k ?? '';
+    b.setAttribute('aria-label', k ? ICONS[k][0] : 'No icon'); b.title = k ? ICONS[k][0] : 'No icon';
+    b.innerHTML = k ? iconSvg(k) : '<span class="none">None</span>';
+    b.addEventListener('click', () => setNewLook({ icon: k }));
+    grid.append(b);
+  }
+  $('nbLabel').value = newLook.label;
+  $('nbLabel').addEventListener('input', (ev) => setNewLook({ label: ev.target.value }));
+  $('nbLabel').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') $('nbAdd').click(); });
+  setNewLook({});
+  $('addMenu').addEventListener('toggle', (ev) => {
+    if (ev.newState !== 'open') return;
+    const r = $('addBubble').getBoundingClientRect();
+    Object.assign($('addMenu').style, { top: `${r.bottom + 6}px`, left: `${Math.max(16, Math.min(r.left, innerWidth - $('addMenu').offsetWidth - 16))}px` });
+    $('nbLabel').focus(); $('nbLabel').select();
+  });
+  $('nbAdd').addEventListener('click', () => { $('addMenu').hidePopover(); $('addBubble').click(); });
+})();
+
 function centreWorld() { return { x: app.cam.x, y: app.cam.y }; }
 function addBubbleAt(x, y) {
   const bid = newId('bb'), eid = newId('el');
-  if (dispatch({ type: 'addBubble', bubble: { id: bid, title: '', hue: nextHue(app.scene), x: Math.round(x), y: Math.round(y), orbit: null, tags: [] }, elements: [{ id: eid, label: 'New', icon: null, imageId: null, tags: [], hue: null }] })) {
+  if (dispatch({ type: 'addBubble', bubble: { id: bid, title: '', hue: nextHue(app.scene), x: Math.round(x), y: Math.round(y), orbit: null, tags: [] }, elements: [{ id: eid, ...newElementLook(), imageId: null, tags: [], hue: null }] })) {
     app.selection = { kind: 'element', id: eid };
     renderUI();
     $('eLabel').focus(); $('eLabel').select();
@@ -2528,7 +2575,7 @@ function addAround(hubId) {
   const hub = app.rt.bubbles[hubId];
   const ring = ringRadius(app.scene, hubId);
   const bid = newId('bb'), eid = newId('el');
-  if (dispatch({ type: 'addBubble', bubble: { id: bid, title: '', hue: nextHue(app.scene), x: Math.round(hub.x + ring * Math.cos(th)), y: Math.round(hub.y + ring * Math.sin(th)), orbit: { hubId }, tags: [] }, elements: [{ id: eid, label: 'New', icon: null, imageId: null, tags: [], hue: null }] })) {
+  if (dispatch({ type: 'addBubble', bubble: { id: bid, title: '', hue: nextHue(app.scene), x: Math.round(hub.x + ring * Math.cos(th)), y: Math.round(hub.y + ring * Math.sin(th)), orbit: { hubId }, tags: [] }, elements: [{ id: eid, ...newElementLook(), imageId: null, tags: [], hue: null }] })) {
     app.selection = { kind: 'element', id: eid };
     renderUI();
     $('eLabel').focus(); $('eLabel').select();
@@ -2990,6 +3037,9 @@ document.addEventListener('keydown', (ev) => {
     }
     return;
   }
+  // ⌘B / ⌘E work from text fields too (the rich-text editor keeps its own ⌘B for bold: it stops propagation).
+  if (app.mode === 'edit' && (ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'b') { ev.preventDefault(); $('addBubble').click(); return; }
+  if (app.mode === 'edit' && (ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'e') { ev.preventDefault(); toggleConnect(); return; }
   if (typing) {
     if (ev.key === 'Escape') { ev.target.blur(); if (app.filterOpen) { app.filterOpen = false; renderFilter(); } }
     return;
@@ -3010,6 +3060,13 @@ document.addEventListener('keydown', (ev) => {
   }
   else if (!mod && ev.key.toLowerCase() === 'c') toggleConnect();
 });
+
+// Holding ⌘/Ctrl alone (not mid-drag, where it means "new cell") underlines the ⌘B / ⌘E letters.
+const cmdHint = (on) => document.body.classList.toggle('cmd-held', on);
+document.addEventListener('keydown', (ev) => cmdHint((ev.key === 'Meta' || ev.key === 'Control') && !app.drag && app.mode === 'edit'));
+document.addEventListener('keyup', (ev) => { if (ev.key === 'Meta' || ev.key === 'Control') cmdHint(false); });
+document.addEventListener('pointerdown', () => cmdHint(false));
+window.addEventListener('blur', () => cmdHint(false));
 
 // ---------- theme tracking ----------
 const refreshTheme = () => { app.theme = readTheme(); };
