@@ -129,6 +129,7 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
 .tag { display: inline-flex; align-items: center; gap: 2px; min-height: 28px; padding-left: 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; }
 .tag button { border: 0; background: transparent; color: var(--muted); width: 28px; height: 26px; border-radius: 999px; font-size: 15px; line-height: 1; }
 .tag button:hover { color: var(--danger); }
+.tag.locked { padding-right: 10px; }
 .btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--surface-2); }
 .seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; background: var(--surface-2); border-radius: 10px; padding: 3px; }
 .seg button { min-height: 34px; border: 1px solid transparent; border-radius: 8px; background: transparent; font-size: 13px; font-weight: 500; color: var(--muted); }
@@ -490,7 +491,7 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
         <form class="msged" id="msgEd" hidden aria-labelledby="msgEdTitle">
           <h3 id="msgEdTitle">New message</h3>
           <div class="field"><label for="mLabel">Label</label><input type="text" id="mLabel" maxlength="40" placeholder="e.g. provision DB" autocomplete="off"></div>
-          <div class="field"><label for="mFields">Input fields <span class="hint2">optional, comma separated</span></label><input type="text" id="mFields" maxlength="200" placeholder="e.g. name, env" autocomplete="off"><p class="note">Asked for when the message is sent. Use them in steps as <code>$name</code> (<code>$$</code> for a plain $).</p></div>
+          <div class="field"><label for="mFieldIn">Input fields <span class="hint2">optional</span></label><div class="tags" id="mFieldTags"></div><input type="text" id="mFieldIn" maxlength="24" placeholder="Add a field and press Enter" autocomplete="off"><input type="hidden" id="mFields"><p class="note">Asked for when the message is sent. Use them in steps as <code>$name</code> (<code>$$</code> for a plain $); any a step uses are added here and stay while it does.</p></div>
           <div class="field">
             <span class="lbl" id="mActsLbl">When it arrives, in order</span>
             <p class="note">Click a step to change it. Drag the handle to reorder.</p>
@@ -533,10 +534,11 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
     <form id="stepForm">
       <header class="mhead"><h2 id="stepDlgTitle">Step</h2><button type="button" class="btn icon" id="stepClose" aria-label="Close without saving"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
       <div class="mbody">
+        <div class="field" id="stepMsgField" hidden><label for="stepMsgLabel">Message label</label><input type="text" id="stepMsgLabel" maxlength="40" placeholder="e.g. provision DB" autocomplete="off"></div>
         <div class="field"><span class="lbl" id="stepKindsLbl">What happens</span><div class="kinds" id="stepKinds" role="group" aria-labelledby="stepKindsLbl"></div></div>
         <div id="stepBody"></div>
       </div>
-      <footer class="mfoot"><button type="button" class="btn" id="stepCancel">Cancel</button><button type="submit" class="btn primary">Save step</button></footer>
+      <footer class="mfoot"><button type="button" class="btn" id="stepCancel">Cancel</button><button type="submit" class="btn primary" id="stepSave">Save step</button></footer>
     </form>
   </dialog>
 
@@ -1545,12 +1547,13 @@ function renderUI() {
   }
 }
 
-function renderTagChips(box, tags, onRemove) {
+function renderTagChips(box, tags, onRemove, locked = new Set()) {
   box.replaceChildren(...tags.map((t) => {
     const chip = document.createElement('span');
     chip.className = 'tag';
     const name = document.createElement('span');
     name.textContent = t;
+    if (locked.has(t)) { chip.classList.add('locked'); chip.title = 'Used in a step'; chip.append(name); return chip; }
     const x = document.createElement('button');
     x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', `Remove tag ${t}`);
     x.addEventListener('click', () => onRemove(t));
@@ -2102,10 +2105,33 @@ function actionBody(a, link) {
 }
 
 // ---- message editor: label + reorderable step list; each step edits in a dialog ----
+// The message's input fields: chips over the hidden #mFields list (which the rest of the editor reads).
+// Fields a step uses are added automatically and can't be removed while a step uses them.
+const draftFields = () => { try { return parseFields($('mFields').value); } catch { return []; } };
+function renderFieldChips() {
+  const d = app.msgDraft;
+  if (!d) return;
+  const used = new Set(d.actions.flatMap((a) => actionTexts(a).filter(Boolean).flatMap(fieldRefs)));
+  const fields = [...new Set([...draftFields(), ...used])];
+  $('mFields').value = fields.join(', ');
+  renderTagChips($('mFieldTags'), fields.map((f) => `$${f}`), (t) => { $('mFields').value = draftFields().filter((f) => `$${f}` !== t).join(', '); renderFieldChips(); }, new Set([...used].map((f) => `$${f}`)));
+}
+/** Turn the half-typed field into a chip; false (after reporting) when it can't be a field. */
+function commitFieldInput() {
+  const raw = $('mFieldIn').value.trim();
+  if (!raw) return true;
+  try { $('mFields').value = parseFields([...draftFields(), ...raw.split(/[\s,]+/)].join(', ')).join(', '); } catch (err) { showError(err); return false; }
+  $('mFieldIn').value = '';
+  renderFieldChips();
+  return true;
+}
+$('mFieldIn').addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ',') { ev.preventDefault(); commitFieldInput(); } });
+
 function renderSteps() {
   const d = app.msgDraft;
   const list = $('mActs');
   if (!d) { list.replaceChildren(); return; }
+  renderFieldChips();
   list.replaceChildren(...d.actions.map((a, i) => {
     const li = document.createElement('li');
     li.dataset.i = String(i);
@@ -2211,14 +2237,18 @@ function startStepDrag(ev, li) {
   li.addEventListener('pointercancel', up);
 }
 
-let stepEdit = null; // { index | null (new), kind, body, original }
-function openStepDialog(index) {
+let stepEdit = null; // { index | null (new), kind, body, original, quick }
+/** quick: a brand-new message in one go: its label sits at the top and Save adds the message too. */
+function openStepDialog(index, quick = false) {
   const d = app.msgDraft;
   if (!d) throw new Error('bug: step dialog without a message draft');
   const link = indexOf(app.scene).links.get(d.linkId);
   const original = index === null ? DEFAULT_ACTION.add() : d.actions[index];
-  stepEdit = { index, original, kind: original.kind, body: null };
-  $('stepDlgTitle').textContent = index === null ? `Step ${d.actions.length + 1}` : `Step ${index + 1}`;
+  stepEdit = { index, original, kind: original.kind, body: null, quick, saved: false };
+  $('stepDlgTitle').textContent = quick ? 'New message' : index === null ? `Step ${d.actions.length + 1}` : `Step ${index + 1}`;
+  $('stepMsgField').hidden = !quick;
+  $('stepMsgLabel').value = '';
+  $('stepSave').textContent = quick ? 'Save' : 'Save step';
   const kinds = $('stepKinds');
   kinds.replaceChildren(...ACTION_KINDS.map(([k, name]) => {
     const b = document.createElement('button');
@@ -2230,7 +2260,7 @@ function openStepDialog(index) {
   }));
   setStepKind(original.kind, link);
   $('stepDlg').showModal();
-  (stepEdit.body.focus ?? kinds.querySelector('[aria-pressed="true"]')).focus();
+  (quick ? $('stepMsgLabel') : stepEdit.body.focus ?? kinds.querySelector('[aria-pressed="true"]')).focus();
 }
 function setStepKind(kind, link) {
   stepEdit.kind = kind;
@@ -2245,13 +2275,17 @@ function setStepKind(kind, link) {
 }
 $('stepForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
+  const quick = stepEdit.quick;
+  if (quick && !$('stepMsgLabel').value.trim()) { showError(new UserError('Give the message a label; it appears on the send button and on the packet.')); $('stepMsgLabel').focus(); return; }
   let action;
   try { action = parseOrThrow(ActionSchema, stepEdit.body.read(), 'Step'); } catch (err) { showError(err); return; }
   const d = app.msgDraft;
   const actions = stepEdit.index === null ? [...d.actions, action] : d.actions.map((x, k) => (k === stepEdit.index ? action : x));
   app.msgDraft = { ...d, actions };
+  stepEdit.saved = true;
   $('stepDlg').close();
   renderSteps();
+  if (quick) { $('mLabel').value = $('stepMsgLabel').value.trim(); $('msgEd').requestSubmit(); } // save the message too (fields fill in from the step)
 });
 $('stepCancel').addEventListener('click', () => $('stepDlg').close());
 $('stepClose').addEventListener('click', () => $('stepDlg').close());
@@ -2308,7 +2342,11 @@ drop.addEventListener('drop', async (ev) => {
   const h = await pending?.catch(() => null);
   openFileDeck(file, h?.kind === 'file' ? h : null);
 });
-$('stepDlg').addEventListener('close', () => { stepEdit = null; $('stepBody').replaceChildren(); });
+$('stepDlg').addEventListener('close', () => {
+  const dropDraft = stepEdit?.quick && !stepEdit.saved; // cancelled a new message: nothing to keep
+  stepEdit = null; $('stepBody').replaceChildren();
+  if (dropDraft) closeMessageEditor();
+});
 $('mActAdd').addEventListener('click', () => openStepDialog(null));
 
 function openMessageEditor(linkId, messageId) {
@@ -2321,9 +2359,10 @@ function openMessageEditor(linkId, messageId) {
   $('msgEdTitle').textContent = existing ? `Edit “${existing.label}”` : 'New message';
   $('mLabel').value = existing?.label ?? '';
   $('mFields').value = (existing?.fields ?? []).join(', ');
+  $('mFieldIn').value = '';
   renderUI();
   if (existing) $('mLabel').focus();
-  else openStepDialog(null);
+  else openStepDialog(null, true);
 }
 function closeMessageEditor() { app.msgDraft = null; renderUI(); }
 
@@ -2336,6 +2375,7 @@ $('msgEd').addEventListener('submit', (ev) => {
     const label = $('mLabel').value.trim();
     if (!label) throw new UserError('Give the message a label; it appears on the send button and on the packet.');
     if (!d.actions.length) throw new UserError('Add at least one step.');
+    if (!commitFieldInput()) return;
     const fields = parseFields($('mFields').value);
     d.actions.forEach((a, i) => {
       const unknown = [...new Set(actionTexts(a).flatMap(fieldRefs))].filter((f) => !fields.includes(f));
