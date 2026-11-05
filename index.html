@@ -395,6 +395,7 @@ button { cursor: pointer; }
         <div class="field"><label for="bTagIn">Tags</label><div class="tags" id="bTags"></div><input type="text" id="bTagIn" list="tagList" maxlength="24" placeholder="Add a tag and press Enter" autocomplete="off"></div>
         <div class="field"><span class="lbl" id="bHueLbl">Membrane colour</span><div class="swatches" id="bHues" role="group" aria-labelledby="bHueLbl"></div><input type="color" id="bColor" aria-label="Custom membrane colour" title="Custom colour"></div>
         <div class="field"><label for="bSpace">Membrane space</label><div class="range"><input type="range" id="bSpace" min="0.2" max="2" step="0.05"><output id="bSpaceOut" for="bSpace"></output></div></div>
+        <div class="field" id="bPinchField"><label for="bPinch">Pinch</label><div class="range"><input type="range" id="bPinch" min="0" max="1" step="0.05"><output id="bPinchOut" for="bPinch"></output></div></div>
         <div class="actions">
           <button class="btn" type="button" id="bAddEl">Add element</button>
           <button class="btn" type="button" id="bAround">Add around</button>
@@ -556,7 +557,7 @@ button { cursor: pointer; }
 </script>
 <script type="module">
 import {
-  HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, presentedScene, ownedScene, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, buildSteps, detachGap, clamp, FIELD_PATTERN, TEMPLATE_TAG_PATTERN, fieldRefs, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt, bubbleLayout, cellAt, nextCell, cellWalls, powerHalf,
+  HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, presentedScene, ownedScene, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, buildSteps, detachGap, clamp, FIELD_PATTERN, TEMPLATE_TAG_PATTERN, fieldRefs, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt, bubbleLayout, cellAt, nextCell, cellWalls, powerHalf, membraneBlend, lobeField,
 } from './lib/core.js';
 import { createDeckStore, memoryStorage } from './lib/store.js';
 
@@ -598,7 +599,7 @@ const FS = `#version 300 es
 precision highp float; precision highp int;
 #define MAXG ${MAXG}
 uniform highp sampler2D uData; uniform int uNumGroups; uniform int uNumBridges;
-uniform vec2 uRes; uniform vec3 uBg; uniform vec4 uGrid; uniform vec3 uCam; uniform float uK; uniform float uDpr; uniform float uDark;
+uniform vec2 uRes; uniform vec3 uBg; uniform vec4 uGrid; uniform vec3 uCam; uniform float uDpr; uniform float uDark;
 out vec4 outColor;
 vec4 F(int x, int y) { return texelFetch(uData, ivec2(x, y), 0); }
 float smin(float a, float b, float k) { if (k < 0.01) return min(a, b); float h = max(k - abs(a - b), 0.0) / k; return min(a, b) - h * h * k * 0.25; }
@@ -623,9 +624,10 @@ void main() {
     vec4 R = F(gi, 3); vec4 Bd = F(gi, 7);
     float bd = length(p - Bd.xy) - Bd.z;
     float d = bd;
-    if (bd < uK * 2.0 + 90.0 * uCam.z) {
+    float gk = R.w; // this membrane's own blend radius
+    if (bd < gk * 2.0 + 90.0 * uCam.z) {
       d = 1e5; int st = int(R.x); int n = int(R.y);
-      for (int i = 0; i < ${MAXB}; i++) { if (i >= n) break; d = smin(d, ballD(st + i, p), uK); }
+      for (int i = 0; i < ${MAXB}; i++) { if (i >= n) break; d = smin(d, ballD(st + i, p), gk); }
     }
     dg[gi] = d;
   }
@@ -670,7 +672,7 @@ function createMembraneRenderer(canvas) {
   gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(`bug: shader link failed: ${gl.getProgramInfoLog(prog)}`);
-  const U = Object.fromEntries(['uData', 'uNumGroups', 'uNumBridges', 'uRes', 'uBg', 'uGrid', 'uCam', 'uK', 'uDpr', 'uDark'].map((n) => [n, gl.getUniformLocation(prog, n)]));
+  const U = Object.fromEntries(['uData', 'uNumGroups', 'uNumBridges', 'uRes', 'uBg', 'uGrid', 'uCam', 'uDpr', 'uDark'].map((n) => [n, gl.getUniformLocation(prog, n)]));
   const vao = gl.createVertexArray();
   const tex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -694,12 +696,18 @@ function createMembraneRenderer(canvas) {
       gl.uniform3f(U.uBg, ...theme.bg);
       gl.uniform4f(U.uGrid, ...theme.grid, theme.gridA);
       gl.uniform3f(U.uCam, frame.cam.x, frame.cam.y, frame.zs);
-      gl.uniform1f(U.uK, K.BLEND * frame.zs);
       gl.uniform1f(U.uDpr, frame.dpr);
       gl.uniform1f(U.uDark, theme.dark);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     },
   };
+}
+
+/** A bubble's membrane lobes and inner cells in world space, scaled with its body so they grow and shrink with it. */
+function cellLobes(scene, b) {
+  const L = bubbleLayout(scene, b.id), k = b.r / L.R;
+  const at = (o, r) => ({ x: b.x + o.x * k, y: b.y + o.y * k, r: r * k });
+  return { cells: L.cells.map((c) => ({ ...at(c, c.m), cell: c.cell })), lobes: L.lobes.map((l) => at(l, l.r)) };
 }
 
 /** Pack runtime bodies into the shader's data texture. Pure apart from the returned buffer. */
@@ -738,7 +746,9 @@ function buildFrame(rt, scene, opts) {
     }
     const sl = Math.hypot(stx, sty);
     if (sl > 0.35) { stx *= 0.35 / sl; sty *= 0.35 / sl; }
-    add(b.x, b.y, b.r, b.w2, b.w3, b.phase, stx, sty);
+    const lobes = ix.bubbles.has(b.id) ? cellLobes(scene, b).lobes : [];
+    if (lobes.length) for (const l of lobes) add(l.x, l.y, l.r, b.w2 * 0.5, b.w3 * 0.5, b.phase, stx, sty);
+    else add(b.x, b.y, b.r, b.w2, b.w3, b.phase, stx, sty);
     let bound = b.r * (1.25 + sl);
     for (const e of elsBy.get(b.id) ?? []) {
       const ev = Math.hypot(e.vx, e.vy) / 2600;
@@ -759,7 +769,7 @@ function buildFrame(rt, scene, opts) {
     const cell = theme.cells[b.hue];
     if (!cell) throw new Error(`bug: unknown hue ${b.hue}`);
     const fade = (b.dying ? clamp(b.r / 40, 0, 1) : 1) * litAlpha(b.lit);
-    put(g, 3, start, ball - start, fade, 0);
+    put(g, 3, start, ball - start, fade, (lobes.length ? membraneBlend(ix.bubbles.get(b.id)) : K.BLEND) * zs);
     put(g, 4, cell[0], cell[1], cell[2], 0);
     put(g, 5, sx(b.x), sy(b.y), b.r * zs, 0);
     put(g, 7, sx(b.x), sy(b.y), bound * zs, 0);
@@ -795,21 +805,27 @@ function drawOverlay(ctx, rt, scene, ui) {
   const ix = indexOf(scene);
   const c = theme.css;
 
-  // Inner cells: walls between groups inside the round membrane. Sites follow their members as they
-  // move (so walls glide with them) and are weighted by the layout's cell size.
-  // ponytail: a site's weight snaps when membership changes; ease it on the body if that jars.
-  const cellSites = (b) => bubbleLayout(scene, b.id).cells.map((cl) => {
-    const live = ix.members.get(b.id).filter((eid) => (ix.elements.get(eid).cell ?? 0) === cl.cell && eid !== dragElementId && rt.elements[eid]).map((eid) => rt.elements[eid]);
-    const p = live.length ? { x: live.reduce((a, e) => a + e.x, 0) / live.length, y: live.reduce((a, e) => a + e.y, 0) / live.length } : { x: b.x + cl.x, y: b.y + cl.y };
-    return { ...p, r: cl.r, cell: cl.cell };
-  });
+  // Inner cells: a wall between each pair of touching lobes, from pinch to pinch.
+  const cellSites = (b) => cellLobes(scene, b).cells;
   for (const b of Object.values(rt.bubbles)) {
     if (b.dying || !ix.bubbles.has(b.id) || !bubbleLayout(scene, b.id).cells.length) continue;
     const col = c.cells[b.hue];
     ctx.save();
     ctx.globalAlpha = litAlpha(b.lit);
     ctx.lineCap = 'round';
-    for (const w of cellWalls(cellSites(b), b.x, b.y, b.r - 4)) {
+    const { lobes } = cellLobes(scene, b), kb = membraneBlend(ix.bubbles.get(b.id));
+    for (const w0 of cellWalls(cellSites(b))) {
+      // stop just short of the rim so the wall tucks into the pinch
+      const wl = Math.hypot(w0.b.x - w0.a.x, w0.b.y - w0.a.y), tr = Math.min(4, wl / 3), ux = (w0.b.x - w0.a.x) / (wl || 1), uy = (w0.b.y - w0.a.y) / (wl || 1);
+      // A rounder membrane fills the waist past the pinch point: carry rim ends (not inner junctions) out to it.
+      const reach = (p, dx, dy) => {
+        if (lobeField(lobes, kb, p.x, p.y) < -kb / 4 - 6) return 0; // an inner junction
+        let t = 0;
+        while (t < kb && lobeField(lobes, kb, p.x + dx * (t + 1), p.y + dy * (t + 1)) < 0) t++;
+        return t;
+      };
+      const ta = reach(w0.a, -ux, -uy) - tr, tb = reach(w0.b, ux, uy) - tr;
+      const w = { a: { x: w0.a.x - ux * ta, y: w0.a.y - uy * ta }, b: { x: w0.b.x + ux * tb, y: w0.b.y + uy * tb } };
       const line = () => { ctx.beginPath(); ctx.moveTo(sx(w.a.x), sy(w.a.y)); ctx.lineTo(sx(w.b.x), sy(w.b.y)); ctx.stroke(); };
       // a wall is a thin double membrane: soft body, then a rim on each side
       ctx.strokeStyle = col;
@@ -853,7 +869,9 @@ function drawOverlay(ctx, rt, scene, ui) {
       ctx.font = `600 ${12 * z}px "Instrument Sans", system-ui, sans-serif`;
       if ('letterSpacing' in ctx) ctx.letterSpacing = `${1.2 * z}px`;
       ctx.textBaseline = 'top';
-      ctx.fillText(b.title.toUpperCase(), sx(b.x), sy(b.y + b.r + 12));
+      const lobes = ix.bubbles.has(b.id) ? cellLobes(scene, b).lobes : [];
+      const bottom = lobes.length ? Math.max(...lobes.map((l) => l.y + l.r)) : b.y + b.r;
+      ctx.fillText(b.title.toUpperCase(), sx(b.x), sy(bottom + 12));
     }
     ctx.restore();
   }
@@ -1020,8 +1038,8 @@ function drawOverlay(ctx, rt, scene, ui) {
     ctx.save();
     ctx.strokeStyle = ctx.fillStyle = c.cells[b.hue]; ctx.lineWidth = 3; ctx.globalAlpha = 0.7;
     if (me) {
-      // tint the target compartment: the membrane clipped by the half-plane of each neighbour
-      ctx.beginPath(); ctx.arc(sx(b.x), sy(b.y), b.r * z, 0, Math.PI * 2); ctx.clip();
+      // tint the target compartment: its lobe clipped by the half-plane of each neighbour
+      ctx.beginPath(); ctx.arc(sx(me.x), sy(me.y), me.r * z, 0, Math.PI * 2); ctx.clip();
       for (const o of sites) {
         if (o === me) continue;
         const h = powerHalf(me, o), l = Math.hypot(h.nx, h.ny), ux = h.nx / l, uy = h.ny / l, px = (ux * h.k) / l, py = (uy * h.k) / l, L = 1e4;
@@ -1372,6 +1390,7 @@ const iconSvg = (key) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
     hues.append(b);
   }
   $('bColor').addEventListener('input', (ev) => app.selection && dispatch({ type: 'updateBubble', id: app.selection.id, patch: { hue: ev.target.value.toLowerCase() } }));
+  $('bPinch').addEventListener('input', (ev) => app.selection && dispatch({ type: 'updateBubble', id: app.selection.id, patch: { pinch: Number(ev.target.value) } }));
   $('bSpace').addEventListener('input', (ev) => app.selection && dispatch({ type: 'updateBubble', id: app.selection.id, patch: { space: Number(ev.target.value) } }));
   const icons = $('eIcons');
   const none = document.createElement('button');
@@ -1436,6 +1455,10 @@ function renderUI() {
     const sp = selB.space ?? 1;
     if (document.activeElement !== $('bSpace')) $('bSpace').value = String(sp);
     $('bSpaceOut').value = `${Math.round(sp * 100)}%`;
+    const pinch = selB.pinch ?? 0.6;
+    $('bPinchField').hidden = !bubbleLayout(app.scene, selB.id).cells.length; // only cells pinch
+    if (document.activeElement !== $('bPinch')) $('bPinch').value = String(pinch);
+    $('bPinchOut').value = `${Math.round(pinch * 100)}%`;
     $('bOrbit').hidden = !!selB.orbit;
     $('bUnorbit').hidden = !selB.orbit;
   }
