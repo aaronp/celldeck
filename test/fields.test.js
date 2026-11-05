@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_DECK, applyCommand, createRuntime, fillAction, fillText, messageCommand, parseDeck, resolveSelector } from '../lib/core.js';
+import { EMPTY_DECK, ICONS, applyCommand, createRuntime, describeAction, fillAction, fillText, messageCommand, parseDeck, resolveSelector } from '../lib/core.js';
 
 test('fillText replaces known $fields, keeps unknown ones, and turns $$ into $', () => {
   assert.equal(fillText('$foo-$bar costs $$5 ($nope)', { foo: 'a', bar: 'b' }), 'a-b costs $5 ($nope)');
@@ -79,4 +79,12 @@ test('split and clone can act on a query instead of the target', () => {
   const sp = messageCommand(sc, rt, 'l5', 'sp', 's').cmd.cmds[0].cmds;
   assert.deepEqual(sp.map((x) => [x.type, x.id]), [['detachElement', 'el-identity']]);
   assert.equal(messageCommand(sc, rt, 'l5', 'old', 's').cmd.cmds[0].cmds[0].id, 'el-ui'); // no "which": the target
+});
+
+test('an add step may leave the label empty when it has an icon', () => {
+  const add = (label, icon) => ({ kind: 'add', label, icon, tags: [], hue: null });
+  assert.deepEqual(fillAction(add('', 'events'), {}).label, '');
+  assert.equal(fillAction(add(' $foo ', 'events'), { foo: '' }).label, '', 'a field that fills in empty is fine with an icon');
+  assert.throws(() => fillAction(add('', null), {}), /neither a label nor an icon/);
+  assert.equal(describeAction(add('', 'events'), EMPTY_DECK.scene), `Add ${ICONS.events[0]} icon`);
 });

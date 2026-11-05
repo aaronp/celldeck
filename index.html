@@ -1982,7 +1982,7 @@ function actionBody(a, link) {
   el.className = 'sub';
   switch (a.kind) {
     case 'add': {
-      const label = textInput(a.label, 'e.g. Postgres', 60);
+      const label = textInput(a.label, 'e.g. Postgres (optional with an icon)', 60);
       const tags = tagEditor(a.tags);
       const iconLbl = uid('lbl'), hueLbl = uid('lbl');
       const icon = iconPicker(a.icon, iconLbl);
@@ -1993,7 +1993,7 @@ function actionBody(a, link) {
       hueField.append(Object.assign(document.createElement('span'), { className: 'lbl', id: hueLbl, textContent: 'Chip colour' }), hue.el);
       el.append(field('New element label', label), iconField, hueField, tags.field());
       return { el, focus: label, read: () => {
-        if (!label.value.trim()) throw new UserError('Give the new element a label.');
+        if (!label.value.trim() && !icon.value) throw new UserError('Give the new element a label or an icon.');
         return { kind: 'add', label: label.value.trim(), icon: icon.value, tags: tags.read(), hue: hue.value };
       } };
     }
