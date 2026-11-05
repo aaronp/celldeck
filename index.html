@@ -25,6 +25,11 @@
   --cell-rose: #DB3A62;
   --cell-blue: #2672E8;
   --cell-green: #2F9A41;
+  --cell-orange: #E8590C;
+  --cell-pink: #D6409F;
+  --cell-cyan: #0B8FB8;
+  --cell-lime: #5F9A0A;
+  --cell-slate: #5C6B7A;
   --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
   --font-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -34,6 +39,7 @@
     --bg: #0D1217; --surface: #151C24; --surface-2: #1B242E; --fg: #E6ECF2; --muted: #98A5B3; --line: #27323E;
     --accent: #7FA5FF; --accent-fg: #0D1217; --danger: #FF7A8A; --grid: #E6ECF2; --grid-a: 0.09; --dark: 1;
     --cell-teal: #2CD3BD; --cell-violet: #A48DFF; --cell-amber: #F4B23F; --cell-rose: #FF6E92; --cell-blue: #5E9DFF; --cell-green: #5FCB6C;
+    --cell-orange: #FF8A4C; --cell-pink: #F783C7; --cell-cyan: #3BC9EE; --cell-lime: #A9E34B; --cell-slate: #A3B1BF;
     color-scheme: dark;
   }
 }
@@ -41,6 +47,7 @@
   --bg: #0D1217; --surface: #151C24; --surface-2: #1B242E; --fg: #E6ECF2; --muted: #98A5B3; --line: #27323E;
   --accent: #7FA5FF; --accent-fg: #0D1217; --danger: #FF7A8A; --grid: #E6ECF2; --grid-a: 0.09; --dark: 1;
   --cell-teal: #2CD3BD; --cell-violet: #A48DFF; --cell-amber: #F4B23F; --cell-rose: #FF6E92; --cell-blue: #5E9DFF; --cell-green: #5FCB6C;
+    --cell-orange: #FF8A4C; --cell-pink: #F783C7; --cell-cyan: #3BC9EE; --cell-lime: #A9E34B; --cell-slate: #A3B1BF;
   color-scheme: dark;
 }
 [hidden] { display: none !important; }
@@ -124,7 +131,7 @@ button { cursor: pointer; }
 .range input { flex: 1; min-width: 0; accent-color: var(--accent); }
 .bgrow { display: flex; align-items: center; gap: 10px; }
 .bgrow .range { flex: 1; min-width: 0; }
-#stColor { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); flex: none; }
+#stColor, #bColor { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); flex: none; }
 #stOpacity:disabled { opacity: 0.45; }
 /* Present-mode top row: the view strip takes what is left of the width and scrolls; share/exit never shrink. */
 .ptopbar { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; gap: 12px; pointer-events: none; }
@@ -327,7 +334,7 @@ button { cursor: pointer; }
     <form class="msgform" id="msgForm" aria-label="Message fields" hidden></form>
     <div class="pickbar" id="pickbar" hidden>Click the bubble to orbit around · Esc to cancel</div>
     <div class="banner" id="banner" role="alert" hidden><p><strong>Problem: </strong><span id="bannerText"></span></p><button type="button" id="bannerClose">Dismiss</button></div>
-    <p class="hint">Drag an element past the membrane to split it off · Drop it on another bubble to merge · Double-click empty space to add a bubble · Scroll to zoom, drag the background to pan</p>
+    <p class="hint">Drag an element past the membrane to split it off · Drop it on another bubble to merge (hold ⌘/Ctrl to drop it into a new inner cell) · Double-click empty space to add a bubble · Scroll to zoom, drag the background to pan</p>
     <div class="hud" id="hud" hidden>
       <button class="btn icon" id="prev" type="button" aria-label="Previous view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       <span class="pos" id="hudPos"></span>
@@ -374,7 +381,7 @@ button { cursor: pointer; }
       <h2>Stage</h2>
       <ul class="tips" style="margin-top:12px">
         <li><b>Pull apart.</b> Drag an icon out of its bubble. Past the membrane it pinches off into its own bubble.</li>
-        <li><b>Merge.</b> Drop an element or a whole bubble onto another bubble.</li>
+        <li><b>Merge.</b> Drop an element or a whole bubble onto another bubble. Hold <kbd>⌘</kbd>/<kbd>Ctrl</kbd> while dropping to put it in a new inner cell; drop on a cell to join it.</li>
         <li><b>Add around.</b> Select a bubble, then Add around. New bubbles bud off and the ring re-spaces itself evenly.</li>
         <li><b>Tags &amp; filter.</b> Tag bubbles and elements in this panel. Type in the filter bar (<span class="kbd">/</span>) or use the funnel to pick tags and icons; everything else fades back.</li>
         <li><b>Connect.</b> Turn on Connect (<span class="kbd">C</span>), then drag from one element to another. Click a line to label and style it.</li>
@@ -386,7 +393,8 @@ button { cursor: pointer; }
         <h2>Bubble</h2>
         <div class="field"><label for="bTitle">Title</label><input type="text" id="bTitle" maxlength="40" placeholder="Untitled"></div>
         <div class="field"><label for="bTagIn">Tags</label><div class="tags" id="bTags"></div><input type="text" id="bTagIn" list="tagList" maxlength="24" placeholder="Add a tag and press Enter" autocomplete="off"></div>
-        <div class="field"><span class="lbl" id="bHueLbl">Membrane colour</span><div class="swatches" id="bHues" role="group" aria-labelledby="bHueLbl"></div></div>
+        <div class="field"><span class="lbl" id="bHueLbl">Membrane colour</span><div class="swatches" id="bHues" role="group" aria-labelledby="bHueLbl"></div><input type="color" id="bColor" aria-label="Custom membrane colour" title="Custom colour"></div>
+        <div class="field"><label for="bSpace">Membrane space</label><div class="range"><input type="range" id="bSpace" min="0.2" max="2" step="0.05"><output id="bSpaceOut" for="bSpace"></output></div></div>
         <div class="actions">
           <button class="btn" type="button" id="bAddEl">Add element</button>
           <button class="btn" type="button" id="bAround">Add around</button>
@@ -548,7 +556,7 @@ button { cursor: pointer; }
 </script>
 <script type="module">
 import {
-  HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, presentedScene, ownedScene, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, buildSteps, detachGap, clamp, FIELD_PATTERN, TEMPLATE_TAG_PATTERN, fieldRefs, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt,
+  HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, presentedScene, ownedScene, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, buildSteps, detachGap, clamp, FIELD_PATTERN, TEMPLATE_TAG_PATTERN, fieldRefs, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt, bubbleLayout, cellAt, nextCell, cellWalls, powerHalf,
 } from './lib/core.js';
 import { createDeckStore, memoryStorage } from './lib/store.js';
 
@@ -777,7 +785,7 @@ function imageFor(id) {
 }
 
 function drawOverlay(ctx, rt, scene, ui) {
-  const { W, H, dpr, theme, mode, selection, dropTargetId, pickMode } = ui;
+  const { W, H, dpr, theme, mode, selection, dropTargetId, dropCell, dragElementId, pickMode } = ui;
   const cam = rt.camera;
   const z = cam.zoom;
   const sx = (x) => (x - cam.x) * z + W / 2;
@@ -786,6 +794,33 @@ function drawOverlay(ctx, rt, scene, ui) {
   ctx.clearRect(0, 0, W, H);
   const ix = indexOf(scene);
   const c = theme.css;
+
+  // Inner cells: walls between groups inside the round membrane. Sites follow their members as they
+  // move (so walls glide with them) and are weighted by the layout's cell size.
+  // ponytail: a site's weight snaps when membership changes; ease it on the body if that jars.
+  const cellSites = (b) => bubbleLayout(scene, b.id).cells.map((cl) => {
+    const live = ix.members.get(b.id).filter((eid) => (ix.elements.get(eid).cell ?? 0) === cl.cell && eid !== dragElementId && rt.elements[eid]).map((eid) => rt.elements[eid]);
+    const p = live.length ? { x: live.reduce((a, e) => a + e.x, 0) / live.length, y: live.reduce((a, e) => a + e.y, 0) / live.length } : { x: b.x + cl.x, y: b.y + cl.y };
+    return { ...p, r: cl.r, cell: cl.cell };
+  });
+  for (const b of Object.values(rt.bubbles)) {
+    if (b.dying || !ix.bubbles.has(b.id) || !bubbleLayout(scene, b.id).cells.length) continue;
+    const col = c.cells[b.hue];
+    ctx.save();
+    ctx.globalAlpha = litAlpha(b.lit);
+    ctx.lineCap = 'round';
+    for (const w of cellWalls(cellSites(b), b.x, b.y, b.r - 4)) {
+      const line = () => { ctx.beginPath(); ctx.moveTo(sx(w.a.x), sy(w.a.y)); ctx.lineTo(sx(w.b.x), sy(w.b.y)); ctx.stroke(); };
+      // a wall is a thin double membrane: soft body, then a rim on each side
+      ctx.strokeStyle = col;
+      ctx.save(); ctx.globalAlpha *= 0.18; ctx.lineWidth = 10 * z; line(); ctx.restore();
+      const len = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y) || 1, ox = (-(w.b.y - w.a.y) / len) * 3, oy = ((w.b.x - w.a.x) / len) * 3;
+      ctx.save(); ctx.globalAlpha *= 0.7; ctx.lineWidth = 1.4;
+      for (const s of [1, -1]) { ctx.beginPath(); ctx.moveTo(sx(w.a.x + s * ox), sy(w.a.y + s * oy)); ctx.lineTo(sx(w.b.x + s * ox), sy(w.b.y + s * oy)); ctx.stroke(); }
+      ctx.restore();
+    }
+    ctx.restore();
+  }
 
   if (mode === 'edit') {
     ctx.save();
@@ -981,9 +1016,24 @@ function drawOverlay(ctx, rt, scene, ui) {
   }
   if (dropTargetId && rt.bubbles[dropTargetId]) {
     const b = rt.bubbles[dropTargetId];
+    const sites = cellSites(b), me = sites.find((x) => x.cell === dropCell);
     ctx.save();
-    ctx.strokeStyle = c.cells[b.hue]; ctx.lineWidth = 3; ctx.globalAlpha = 0.7;
-    ctx.beginPath(); ctx.arc(sx(b.x), sy(b.y), b.r * z + 7, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = ctx.fillStyle = c.cells[b.hue]; ctx.lineWidth = 3; ctx.globalAlpha = 0.7;
+    if (me) {
+      // tint the target compartment: the membrane clipped by the half-plane of each neighbour
+      ctx.beginPath(); ctx.arc(sx(b.x), sy(b.y), b.r * z, 0, Math.PI * 2); ctx.clip();
+      for (const o of sites) {
+        if (o === me) continue;
+        const h = powerHalf(me, o), l = Math.hypot(h.nx, h.ny), ux = h.nx / l, uy = h.ny / l, px = (ux * h.k) / l, py = (uy * h.k) / l, L = 1e4;
+        ctx.beginPath(); // big quad on the n·p <= k side
+        for (const [a, d] of [[-L, 0], [L, 0], [L, -L], [-L, -L]]) ctx.lineTo(sx(px - uy * a + ux * d), sy(py + ux * a + uy * d));
+        ctx.clip();
+      }
+      ctx.globalAlpha = 0.16; ctx.fillRect(0, 0, W, H);
+    } else {
+      if (dropCell === 'new') ctx.setLineDash([8, 7]);
+      ctx.beginPath(); ctx.arc(sx(b.x), sy(b.y), b.r * z + 7, 0, Math.PI * 2); ctx.stroke();
+    }
     ctx.restore();
   }
   if (pickMode) {
@@ -1006,6 +1056,7 @@ const app = {
   pick: null,
   drag: null,
   dropTargetId: null,
+  dropCell: null, // with dropTargetId: the inner cell number the drop lands in, or 'new' (⌘/Ctrl held) for a new cell
   views: [],
   activeViewId: null,
   filter: EMPTY_FILTER,
@@ -1320,6 +1371,8 @@ const iconSvg = (key) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
     b.addEventListener('click', () => app.selection && dispatch({ type: 'updateBubble', id: app.selection.id, patch: { hue: h } }));
     hues.append(b);
   }
+  $('bColor').addEventListener('input', (ev) => app.selection && dispatch({ type: 'updateBubble', id: app.selection.id, patch: { hue: ev.target.value.toLowerCase() } }));
+  $('bSpace').addEventListener('input', (ev) => app.selection && dispatch({ type: 'updateBubble', id: app.selection.id, patch: { space: Number(ev.target.value) } }));
   const icons = $('eIcons');
   const none = document.createElement('button');
   none.type = 'button'; none.dataset.icon = ''; none.setAttribute('aria-label', 'No icon'); none.innerHTML = '<span class="none">None</span>';
@@ -1379,6 +1432,10 @@ function renderUI() {
   if (selB) {
     if (document.activeElement !== $('bTitle')) $('bTitle').value = selB.title;
     for (const b of $('bHues').children) b.setAttribute('aria-pressed', String(b.dataset.hue === selB.hue));
+    if (document.activeElement !== $('bColor')) $('bColor').value = selB.hue.startsWith('#') ? selB.hue : (app.theme.css.cells[selB.hue] ?? '#000000').toLowerCase();
+    const sp = selB.space ?? 1;
+    if (document.activeElement !== $('bSpace')) $('bSpace').value = String(sp);
+    $('bSpaceOut').value = `${Math.round(sp * 100)}%`;
     $('bOrbit').hidden = !!selB.orbit;
     $('bUnorbit').hidden = !selB.orbit;
   }
@@ -2377,8 +2434,8 @@ $('stOpacity').addEventListener('input', (ev) => dispatch({ type: 'setStage', pa
 const INK = Object.freeze({
   onLight: { fg: '#17202a', muted: '#566170', surface: '#ffffff', accent: '#2550b8' },
   onDark: { fg: '#e6ecf2', muted: '#98a5b3', surface: '#151c24', accent: '#7fa5ff' },
-  cellsOnLight: { teal: '#0e9f8e', violet: '#6d4df2', amber: '#d98a0b', rose: '#db3a62', blue: '#2672e8', green: '#2f9a41' },
-  cellsOnDark: { teal: '#2cd3bd', violet: '#a48dff', amber: '#f4b23f', rose: '#ff6e92', blue: '#5e9dff', green: '#5fcb6c' },
+  cellsOnLight: { teal: '#0e9f8e', violet: '#6d4df2', amber: '#d98a0b', rose: '#db3a62', blue: '#2672e8', green: '#2f9a41', orange: '#e8590c', pink: '#d6409f', cyan: '#0b8fb8', lime: '#5f9a0a', slate: '#5c6b7a' },
+  cellsOnDark: { teal: '#2cd3bd', violet: '#a48dff', amber: '#f4b23f', rose: '#ff6e92', blue: '#5e9dff', green: '#5fcb6c', orange: '#ff8a4c', pink: '#f783c7', cyan: '#3bc9ee', lime: '#a9e34b', slate: '#a3b1bf' },
 });
 
 // In present mode on a custom-coloured slide, the floating controls (notes, HUD, view strip, share/exit, messages)
@@ -2783,6 +2840,7 @@ ov.addEventListener('pointermove', (ev) => {
   }
   if (d.kind === 'rope') { d.x = w.x; d.y = w.y; return; }
   d.x = w.x + d.offX; d.y = w.y + d.offY;
+  const mod = ev.metaKey || ev.ctrlKey;
   if (d.kind === 'element' && d.tether) {
     if (detachGap(app.scene, app.rt, d.id, d.x, d.y) > K.DETACH_GAP) {
       const nb = newId('bb');
@@ -2793,18 +2851,26 @@ ov.addEventListener('pointermove', (ev) => {
       d.tether = false;
     }
     const e = indexOf(app.scene).elements.get(d.id);
-    app.dropTargetId = bubbleAt(app.rt, app.scene, w.x, w.y, e.bubbleId)?.id ?? null;
+    const own = app.rt.bubbles[e.bubbleId];
+    // Within its own bubble an element can only change cell: into another cell, or (⌘/Ctrl) a new one.
+    const inOwn = (mod || bubbleLayout(app.scene, e.bubbleId).cells.length > 0) && Math.hypot(w.x - own.x, w.y - own.y) < own.r;
+    setDrop(bubbleAt(app.rt, app.scene, w.x, w.y, e.bubbleId)?.id ?? (inOwn ? e.bubbleId : null), w, mod);
   } else if (d.kind === 'bubble') {
-    app.dropTargetId = bubbleAt(app.rt, app.scene, w.x, w.y, d.id)?.id ?? null;
+    setDrop(bubbleAt(app.rt, app.scene, w.x, w.y, d.id)?.id ?? null, w, mod);
   }
 });
+function setDrop(id, w, mod) {
+  app.dropTargetId = id;
+  app.dropCell = id === null ? null : mod ? 'new' : cellAt(app.rt, app.scene, id, w.x, w.y);
+}
 
 function endDrag(ev) {
   const d = app.drag;
   if (!d) return;
   app.drag = null;
   const target = app.dropTargetId;
-  app.dropTargetId = null;
+  const cell = target && (app.dropCell === 'new' ? nextCell(app.scene, target) : app.dropCell);
+  app.dropTargetId = null; app.dropCell = null;
   ov.style.cursor = 'default';
   if (!d.moved) {
     if (d.kind === 'pan') app.selection = null;
@@ -2835,12 +2901,13 @@ function endDrag(ev) {
     return;
   }
   if (d.kind === 'element') {
-    if (target) dispatch({ type: 'moveElement', id: d.id, toBubbleId: target });
+    const e = indexOf(app.scene).elements.get(d.id);
+    if (target && !(target === e.bubbleId && (e.cell ?? 0) === cell)) dispatch({ type: 'moveElement', id: d.id, toBubbleId: target, cell });
     return;
   }
   if (d.kind === 'bubble') {
     if (target) {
-      dispatch({ type: 'mergeBubble', fromId: d.id, intoId: target, titleElementId: newId('el') });
+      dispatch({ type: 'mergeBubble', fromId: d.id, intoId: target, titleElementId: newId('el'), cell });
       return;
     }
     const sb = indexOf(app.scene).bubbles.get(d.id);
@@ -2955,11 +3022,13 @@ function frame(now) {
     const darkBg = 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2] < 0.45;
     // Ink follows the actual backdrop, not the theme, so a dark custom colour in light mode (or the reverse) stays readable.
     const ink = darkBg ? INK.onDark : INK.onLight;
+    // Named hues follow the backdrop; custom #rrggbb membranes (including fading ones) are used as is.
+    const cellInk = { ...(darkBg ? INK.cellsOnDark : INK.cellsOnLight), ...Object.fromEntries(Object.values(app.rt.bubbles).filter((b) => b.hue.startsWith('#')).map((b) => [b.hue, b.hue])) };
     const backdrop = { ...app.theme, bg, grid: hexRgb(ink.fg), gridA: (darkBg ? 0.09 : 0.13) * st.grid, dark: darkBg ? 1 : 0 };
     paintPresentChrome(app.mode === 'present' && st.a > 0.001 ? { bg, ink } : null);
     renderSaveState();
-    if (renderer) renderer.draw(buildFrame(app.rt, app.scene, { ...size, theme: { ...app.theme, cells: Object.fromEntries(HUES.map((h) => [h, hexRgb((darkBg ? INK.cellsOnDark : INK.cellsOnLight)[h])])) }, dragBubbleId: input.drag?.kind === 'bubble' ? input.drag.id : null }), backdrop);
-    drawOverlay(ctx, app.rt, app.scene, { ...size, theme: { ...app.theme, css: { ...app.theme.css, ...ink, cells: darkBg ? INK.cellsOnDark : INK.cellsOnLight } }, mode: app.mode, selection: app.selection, dropTargetId: app.dropTargetId, pickMode: app.pick === 'orbit', packets: app.packets, pendingLink: app.drag?.kind === 'link' && app.drag.moved ? { fromId: app.drag.fromId, x: app.drag.x, y: app.drag.y, targetId: app.drag.targetId } : null });
+    if (renderer) renderer.draw(buildFrame(app.rt, app.scene, { ...size, theme: { ...app.theme, cells: Object.fromEntries(Object.entries(cellInk).map(([h, v]) => [h, hexRgb(v)])) }, dragBubbleId: input.drag?.kind === 'bubble' ? input.drag.id : null }), backdrop);
+    drawOverlay(ctx, app.rt, app.scene, { ...size, theme: { ...app.theme, css: { ...app.theme.css, ...ink, cells: cellInk } }, mode: app.mode, selection: app.selection, dropTargetId: app.dropTargetId, dropCell: app.dropCell, dragElementId: app.drag?.kind === 'element' ? app.drag.id : null, pickMode: app.pick === 'orbit', packets: app.packets, pendingLink: app.drag?.kind === 'link' && app.drag.moved ? { fromId: app.drag.fromId, x: app.drag.x, y: app.drag.y, targetId: app.drag.targetId } : null });
   } catch (err) {
     loopFailed = true;
     showError(err);
