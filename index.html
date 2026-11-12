@@ -108,6 +108,12 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
 .icons button svg { width: 20px; height: 20px; }
 .icons button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--surface); }
 .icons button .none { font-size: 11px; color: var(--muted); }
+.icons button[hidden] { display: none; }
+#eIcons, #nbIcons { max-height: 248px; overflow-y: auto; align-content: start; } /* ~6 rows, then scroll */
+.iconhead { display: flex; align-items: center; gap: 6px; min-height: 30px; }
+.iconhead .lbl { flex: 1; }
+.iconhead input { flex: 4; min-width: 0; min-height: 30px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); }
+.iconhead .btn.icon { width: 30px; min-height: 30px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .filter { position: relative; display: flex; align-items: center; min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); flex: 0 1 300px; min-width: 200px; }
 .filter:focus-within { border-color: var(--accent); }
@@ -416,8 +422,8 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
         <div class="field"><label for="bSpace">Membrane space</label><div class="range"><input type="range" id="bSpace" min="0.2" max="2" step="0.05"><output id="bSpaceOut" for="bSpace"></output></div></div>
         <div class="field" id="bPinchField"><label for="bPinch">Pinch</label><div class="range"><input type="range" id="bPinch" min="0" max="1" step="0.05"><output id="bPinchOut" for="bPinch"></output></div></div>
         <div class="actions">
-          <button class="btn" type="button" id="bAddEl">Add element</button>
-          <button class="btn" type="button" id="bAround">Add around</button>
+          <button class="btn" type="button" id="bAddEl" title="Add element (⌘L)" aria-keyshortcuts="Meta+L Control+L"><span>Add e<span class="mn">l</span>ement</span></button>
+          <button class="btn" type="button" id="bAround" title="Add around (⌘U)" aria-keyshortcuts="Meta+U Control+U"><span>Add aro<span class="mn">u</span>nd</span></button>
           <button class="btn" type="button" id="bOrbit">Orbit…</button>
           <button class="btn" type="button" id="bUnorbit">Leave orbit</button>
           <button class="btn" type="button" id="bDup" title="Duplicate (⌘D)">Duplicate</button>
@@ -442,7 +448,7 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
           <label class="check" for="eDescShow"><input type="checkbox" id="eDescShow">Show in presentation</label>
         </div>
         <div class="field"><label for="eTagIn">Tags</label><div class="tags" id="eTags"></div><input type="text" id="eTagIn" list="tagList" maxlength="24" placeholder="Add a tag and press Enter" autocomplete="off"></div>
-        <div class="field"><span class="lbl" id="eIconLbl">Icon</span><div class="icons" id="eIcons" role="group" aria-labelledby="eIconLbl"></div></div>
+        <div class="field"><div class="iconhead"><span class="lbl" id="eIconLbl">Icon</span><input type="search" id="eIconQ" placeholder="Filter icons" aria-label="Filter icons" autocomplete="off" hidden><button class="btn icon" type="button" id="eIconFind" aria-label="Filter icons" title="Filter icons" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z M16 16l5 5"/></svg></button></div><div class="icons" id="eIcons" role="group" aria-labelledby="eIconLbl"></div></div>
         <div class="field"><span class="lbl" id="eHueLbl">Chip colour</span><div class="swatches" id="eHues" role="group" aria-labelledby="eHueLbl"></div></div>
         <div class="field"><span class="lbl" id="eTextLbl">Label style</span><div class="swatches" id="eText" role="group" aria-labelledby="eTextLbl"></div></div>
         <div class="field">
@@ -1417,7 +1423,7 @@ const iconSvg = (key) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
   const icons = $('eIcons');
   const none = document.createElement('button');
   none.type = 'button'; none.dataset.icon = ''; none.setAttribute('aria-label', 'No icon'); none.innerHTML = '<span class="none">None</span>';
-  none.addEventListener('click', () => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { icon: null } }));
+  none.addEventListener('click', () => { lastIcon = null; app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { icon: null } }); });
   icons.append(none);
   for (const k of ICON_KEYS) {
     const b = document.createElement('button');
@@ -1425,6 +1431,7 @@ const iconSvg = (key) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
     // Keep focus (and the selection) in the label while the label is being edited, so clicking icons can retitle it.
     b.addEventListener('mousedown', (ev) => { if (document.activeElement === $('eLabel')) ev.preventDefault(); });
     b.addEventListener('click', () => {
+      lastIcon = k;
       if (!app.selection) return;
       const e = indexOf(app.scene).elements.get(app.selection.id);
       const input = $('eLabel');
@@ -2584,12 +2591,15 @@ function renderPresentStrip() {
   $('pstrip').querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
-// Label and icon that new bubbles start with; set from the Add bubble drop-down and remembered in this browser.
-let newLook = (() => { try { const v = JSON.parse(localStorage.getItem('celldeck.newLook')); if (v && typeof v.label === 'string' && (v.icon === null || ICON_KEYS.includes(v.icon))) return v; } catch {} return { label: '', icon: null }; })();
-const newElementLook = () => ({ label: newLook.label.trim() || (newLook.icon ? '' : 'New'), icon: newLook.icon });
+// Label and icon that new bubbles start with; set from the Add bubble drop-down. Only the icon is remembered in this browser.
+let newLook = (() => { try { const v = JSON.parse(localStorage.getItem('celldeck.newLook')); if (v && (v.icon === null || ICON_KEYS.includes(v.icon))) return { label: '', icon: v.icon }; } catch {} return { label: '', icon: null }; })();
+// Icon last picked in the element panel; Add element (⌘L) starts new elements with it.
+let lastIcon = null;
+const iconLabel = (icon) => icon ? ICONS[icon][0] : 'New';
+const newElementLook = () => ({ label: newLook.label.trim() || iconLabel(newLook.icon), icon: newLook.icon });
 function setNewLook(patch) {
   newLook = { ...newLook, ...patch };
-  try { localStorage.setItem('celldeck.newLook', JSON.stringify(newLook)); } catch {}
+  try { localStorage.setItem('celldeck.newLook', JSON.stringify({ icon: newLook.icon })); } catch {}
   for (const b of $('nbIcons').children) b.setAttribute('aria-pressed', String((b.dataset.icon || null) === newLook.icon));
 }
 (function buildAddMenu() {
@@ -2674,7 +2684,7 @@ $('vName').addEventListener('change', (ev) => updateView({ name: ev.target.value
 $('bTitle').addEventListener('input', (ev) => app.selection && dispatch({ type: 'updateBubble', id: app.selection.id, patch: { title: ev.target.value.slice(0, 40) } }));
 $('bAddEl').addEventListener('click', () => {
   const eid = newId('el');
-  if (dispatch({ type: 'addElement', bubbleId: app.selection.id, element: { id: eid, label: 'New', icon: null, imageId: null, tags: [], hue: null } })) {
+  if (dispatch({ type: 'addElement', bubbleId: app.selection.id, element: { id: eid, label: iconLabel(lastIcon), icon: lastIcon, imageId: null, tags: [], hue: null } })) {
     app.selection = { kind: 'element', id: eid }; renderUI(); $('eLabel').focus(); $('eLabel').select();
   }
 });
@@ -2754,6 +2764,27 @@ wireRich('eDesc', (patch) => app.selection?.kind === 'element' && dispatch({ typ
 wireRich('stDesc', (patch) => dispatch({ type: 'setStage', patch }));
 
 $('eLabel').addEventListener('input', (ev) => app.selection && dispatch({ type: 'updateElement', id: app.selection.id, patch: { label: ev.target.value.slice(0, 60) } }));
+// Enter on an element's label hands selection back to its bubble, ready for ⌘L to add the next one.
+// Icon filter: the magnifier opens a search box that hides icons whose name doesn't match.
+function filterIcons(q) {
+  q = q.trim().toLowerCase();
+  for (const b of $('eIcons').children) b.hidden = !!q && !(b.dataset.icon && (ICONS[b.dataset.icon][0].toLowerCase().includes(q) || b.dataset.icon.includes(q)));
+}
+function openIconFilter(open) {
+  $('eIconQ').hidden = !open; $('eIconFind').setAttribute('aria-expanded', String(open));
+  if (open) $('eIconQ').focus(); else { $('eIconQ').value = ''; filterIcons(''); }
+}
+$('eIconFind').addEventListener('click', () => openIconFilter($('eIconQ').hidden));
+$('eIconQ').addEventListener('input', (ev) => filterIcons(ev.target.value));
+$('eIconQ').addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') { ev.stopPropagation(); openIconFilter(false); $('eIconFind').focus(); }
+  else if (ev.key === 'Enter') { ev.preventDefault(); [...$('eIcons').children].find((b) => !b.hidden && b.dataset.icon)?.click(); }
+});
+$('eLabel').addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Enter' || ev.isComposing || app.selection?.kind !== 'element') return;
+  ev.preventDefault(); ev.target.blur();
+  app.selection = { kind: 'bubble', id: app.rt.elements[app.selection.id].bubbleId }; renderUI();
+});
 $('eDel').addEventListener('click', () => dispatch({ type: 'deleteElement', id: app.selection.id }));
 function duplicateSelected() {
   if (app.selection?.kind !== 'element') throw new Error('bug: duplicate without a selected element');
@@ -3105,6 +3136,8 @@ document.addEventListener('keydown', (ev) => {
   else if (mod && ev.key.toLowerCase() === 'y') { ev.preventDefault(); redo(); }
   else if (mod && ev.key.toLowerCase() === 'd' && app.selection?.kind === 'element') { ev.preventDefault(); duplicateSelected(); }
   else if (mod && ev.key.toLowerCase() === 'd' && app.selection?.kind === 'bubble') { ev.preventDefault(); duplicateBubble(); }
+  else if (mod && ev.key.toLowerCase() === 'l' && app.selection?.kind === 'bubble') { ev.preventDefault(); $('bAddEl').click(); }
+  else if (mod && ev.key.toLowerCase() === 'u' && app.selection?.kind === 'bubble') { ev.preventDefault(); addAround(app.selection.id); }
   else if (ev.key === 'Escape') { app.pick = null; app.selection = null; renderUI(); }
   else if ((ev.key === 'Delete' || ev.key === 'Backspace') && app.selection) {
     ev.preventDefault();
@@ -3115,7 +3148,7 @@ document.addEventListener('keydown', (ev) => {
   else if (!mod && ev.key.toLowerCase() === 'c') toggleConnect();
 });
 
-// Holding ⌘/Ctrl alone (not mid-drag, where it means "new cell") underlines the ⌘B / ⌘E letters.
+// Holding ⌘/Ctrl alone (not mid-drag, where it means "new cell") underlines the ⌘B / ⌘E / ⌘L / ⌘U letters.
 const cmdHint = (on) => document.body.classList.toggle('cmd-held', on);
 document.addEventListener('keydown', (ev) => cmdHint((ev.key === 'Meta' || ev.key === 'Control') && !app.drag && app.mode === 'edit'));
 document.addEventListener('keyup', (ev) => { if (ev.key === 'Meta' || ev.key === 'Control') cmdHint(false); });
