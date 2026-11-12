@@ -59,3 +59,13 @@ test('pinch: lower fills the waist between lobes', () => {
   assert.ok(rim(0) > rim(0.6) && rim(0.6) >= rim(1), `${rim(0)} > ${rim(0.6)} >= ${rim(1)}`);
   assert.ok(rim(1) - waist < 8, 'pinch 1 stays creased');
 });
+
+test('detaching the last element of an untitled bubble removes that bubble', () => {
+  const s0 = applyCommand(EMPTY_DECK.scene, { type: 'updateBubble', id: 'bb-app', patch: { title: '' } });
+  const ids = s0.elements.filter((e) => e.bubbleId === 'bb-app').map((e) => e.id);
+  const s1 = applyCommand(s0, { type: 'batch', cmds: [
+    ...ids.slice(1).map((id, i) => ({ type: 'detachElement', id, newBubbleId: `bb-${i}`, x: 300 + 100 * i, y: 0, hue: 'rose' })),
+    { type: 'detachElement', id: ids[0], newBubbleId: 'bb-last', x: 0, y: 300, hue: 'rose' },
+  ] });
+  assert.ok(!s1.bubbles.some((b) => b.id === 'bb-app'));
+});

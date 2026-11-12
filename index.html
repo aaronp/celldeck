@@ -435,7 +435,7 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
     <section id="inspElement" hidden>
       <div style="display:flex;flex-direction:column;gap:16px">
         <div class="insphead">
-          <h2>Element</h2>
+          <h2 id="eHead">Element</h2>
           <div class="actions">
             <button class="btn icon" type="button" id="eDup" aria-label="Duplicate" title="Duplicate (⌘D)" aria-keyshortcuts="Meta+D Control+D"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9h11v11H9z M5 15H4V4h11v1"/></svg></button>
             <button class="btn icon" type="button" id="ePull" aria-label="Pull out" title="Pull out into its own bubble (⌘P)" aria-keyshortcuts="Meta+P Control+P"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 15a6 6 0 1 1 0-12 M12 12l9 9 M14 21h7v-7"/></svg></button>
@@ -1055,10 +1055,20 @@ function drawOverlay(ctx, rt, scene, ui) {
     if (selection.kind === 'bubble' && rt.bubbles[selection.id]) {
       const b = rt.bubbles[selection.id];
       ctx.beginPath(); ctx.arc(sx(b.x), sy(b.y), b.r * z + 8, 0, Math.PI * 2); ctx.stroke();
-    } else if (selection.kind === 'element' && rt.elements[selection.id]) {
-      const e = rt.elements[selection.id];
-      ctx.beginPath(); ctx.arc(sx(e.x), sy(e.y - 8), (K.ELEM_R + 7) * z, 0, Math.PI * 2); ctx.stroke();
+    } else if (selection.kind === 'element') {
+      for (const id of ui.selectedIds) {
+        const e = rt.elements[id];
+        if (e) { ctx.beginPath(); ctx.arc(sx(e.x), sy(e.y - 8), (K.ELEM_R + 7) * z, 0, Math.PI * 2); ctx.stroke(); }
+      }
     }
+    ctx.restore();
+  }
+  if (ui.marquee) {
+    const m = ui.marquee, x = Math.min(sx(m.x0), sx(m.x)), y = Math.min(sy(m.y0), sy(m.y));
+    ctx.save();
+    ctx.strokeStyle = ctx.fillStyle = c.accent; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    ctx.globalAlpha = 0.08; ctx.fillRect(x, y, Math.abs(sx(m.x) - sx(m.x0)), Math.abs(sy(m.y) - sy(m.y0)));
+    ctx.globalAlpha = 0.9; ctx.strokeRect(x, y, Math.abs(sx(m.x) - sx(m.x0)), Math.abs(sy(m.y) - sy(m.y0)));
     ctx.restore();
   }
   if (dropTargetId && rt.bubbles[dropTargetId]) {
@@ -1099,6 +1109,7 @@ const app = {
   cam: { ...EMPTY_DECK.camera },
   past: [], future: [],
   selection: null,
+  multi: [], // shift-clicked element ids; counts only while it includes the selected element
   mode: 'edit',
   pick: null,
   drag: null,
@@ -1136,6 +1147,7 @@ function setScene(next, { history, hints = { spawnFrom: {} } }) {
   app.scene = next;
   const ix = indexOf(next);
   if (app.selection && !({ bubble: ix.bubbles, element: ix.elements, link: ix.links }[app.selection.kind]).has(app.selection.id)) app.selection = null;
+  app.multi = app.multi.filter((id) => ix.elements.has(id));
   scheduleSave();
   renderUI();
 }
@@ -1151,6 +1163,8 @@ function dispatch(cmd, hints = { spawnFrom: {} }) {
   }
 }
 const nextHue = (scene) => HUES[scene.bubbles.length % HUES.length];
+/** Every selected element: the shift-click group, or just the selected element. */
+const selIds = () => app.selection?.kind !== 'element' ? [] : app.multi.includes(app.selection.id) ? app.multi : [app.selection.id];
 
 function undo() {
   if (!app.past.length) return;
@@ -1458,6 +1472,7 @@ function renderUI() {
   $('inspNone').hidden = !!(selB || selE || selL);
   $('inspBubble').hidden = !selB;
   $('inspElement').hidden = !selE;
+  if (selE) { const n = selIds().length; $('eHead').textContent = n > 1 ? `${n} elements` : 'Element'; $('eDel').title = n > 1 ? `Delete ${n} elements (⌫)` : 'Delete element (⌫)'; }
   $('inspLink').hidden = !selL;
   if (selL) {
     if (document.activeElement !== $('lLabel')) $('lLabel').value = selL.label;
@@ -2788,7 +2803,8 @@ $('eLabel').addEventListener('keydown', (ev) => {
   ev.preventDefault(); ev.target.blur();
   app.selection = { kind: 'bubble', id: app.rt.elements[app.selection.id].bubbleId }; renderUI();
 });
-$('eDel').addEventListener('click', () => dispatch({ type: 'deleteElement', id: app.selection.id }));
+$('eDel').addEventListener('click', deleteSelectedElements);
+function deleteSelectedElements() { dispatch({ type: 'batch', cmds: selIds().map((id) => ({ type: 'deleteElement', id })) }); app.multi = []; }
 function duplicateSelected() {
   if (app.selection?.kind !== 'element') throw new Error('bug: duplicate without a selected element');
   const src = app.selection.id;
@@ -2946,8 +2962,23 @@ ov.addEventListener('pointerdown', (ev) => {
     app.drag = { ...base, kind: 'link', fromId: hit.id, x: w.x, y: w.y, targetId: null };
     return;
   }
+  if (ev.shiftKey && app.mode === 'edit' && hit?.kind === 'element') {
+    const ids = selIds();
+    app.multi = ids.includes(hit.id) ? ids.filter((id) => id !== hit.id) : [...ids, hit.id];
+    app.selection = app.multi.length ? { kind: 'element', id: app.multi.includes(hit.id) ? hit.id : app.multi.at(-1) } : null;
+    renderUI();
+    return;
+  }
+  if (ev.shiftKey && app.mode === 'edit' && !app.pick) {
+    app.drag = { ...base, kind: 'marquee', x0: w.x, y0: w.y, x: w.x, y: w.y };
+    return;
+  }
+  const group = hit?.kind === 'element' && selIds().length > 1 && selIds().includes(hit.id);
   if (!hit) {
     app.drag = { ...base, kind: 'pan', cam0: { ...app.cam } };
+  } else if (group) {
+    const body = app.rt.elements[hit.id];
+    app.drag = { ...base, kind: 'element', id: hit.id, offX: body.x - w.x, offY: body.y - w.y, x: body.x, y: body.y, tether: false, group: selIds(), offsets: Object.fromEntries(selIds().filter((id) => id !== hit.id).map((id) => [id, { x: app.rt.elements[id].x - body.x, y: app.rt.elements[id].y - body.y }])) };
   } else if (hit.kind === 'element') {
     const e = ix.elements.get(hit.id);
     const b = ix.bubbles.get(e.bubbleId);
@@ -2984,7 +3015,7 @@ ov.addEventListener('pointermove', (ev) => {
   }
   if (!d.moved && Math.hypot(ev.clientX - d.startX, ev.clientY - d.startY) > 4) d.moved = true;
   if (!d.moved) return;
-  ov.style.cursor = d.kind === 'pan' ? 'grabbing' : 'grabbing';
+  ov.style.cursor = d.kind === 'marquee' ? 'crosshair' : 'grabbing';
   if (d.kind === 'pan') {
     const z = app.cam.zoom;
     app.cam = { ...d.cam0, x: d.cam0.x - (ev.clientX - d.startX) / z, y: d.cam0.y - (ev.clientY - d.startY) / z };
@@ -2996,7 +3027,7 @@ ov.addEventListener('pointermove', (ev) => {
     d.targetId = elementAt(app.rt, app.scene, w.x, w.y, d.fromId);
     return;
   }
-  if (d.kind === 'rope') { d.x = w.x; d.y = w.y; return; }
+  if (d.kind === 'rope' || d.kind === 'marquee') { d.x = w.x; d.y = w.y; return; }
   d.x = w.x + d.offX; d.y = w.y + d.offY;
   const mod = ev.metaKey || ev.ctrlKey;
   if (d.kind === 'element' && d.tether) {
@@ -3013,6 +3044,8 @@ ov.addEventListener('pointermove', (ev) => {
     // Within its own bubble an element can only change cell: into another cell, or (⌘/Ctrl) a new one.
     const inOwn = (mod || bubbleLayout(app.scene, e.bubbleId).cells.length > 0) && Math.hypot(w.x - own.x, w.y - own.y) < own.r;
     setDrop(bubbleAt(app.rt, app.scene, w.x, w.y, e.bubbleId)?.id ?? (inOwn ? e.bubbleId : null), w, mod);
+  } else if (d.kind === 'element' && d.group) {
+    setDrop(bubbleAt(app.rt, app.scene, w.x, w.y)?.id ?? null, w, mod);
   } else if (d.kind === 'bubble') {
     setDrop(bubbleAt(app.rt, app.scene, w.x, w.y, d.id)?.id ?? null, w, mod);
   }
@@ -3030,7 +3063,17 @@ function endDrag(ev) {
   const cell = target && (app.dropCell === 'new' ? nextCell(app.scene, target) : app.dropCell);
   app.dropTargetId = null; app.dropCell = null;
   ov.style.cursor = 'default';
+  if (d.kind === 'marquee') {
+    // Shift-drag box: adds every element inside it to the selection.
+    const [x0, x1] = [d.x0, d.x].sort((a, b) => a - b), [y0, y1] = [d.y0, d.y].sort((a, b) => a - b);
+    const inside = Object.values(app.rt.elements).filter((e) => !e.dying && e.x >= x0 && e.x <= x1 && e.y >= y0 && e.y <= y1).map((e) => e.id);
+    const ids = [...new Set([...selIds(), ...inside])];
+    if (ids.length) { app.multi = ids; app.selection = { kind: 'element', id: app.selection?.kind === 'element' && ids.includes(app.selection.id) ? app.selection.id : ids.at(-1) }; }
+    renderUI();
+    return;
+  }
   if (!d.moved) {
+    app.multi = [];
     if (d.kind === 'pan') app.selection = null;
     else app.selection = app.mode === 'edit' ? d.hit : d.hit?.kind === 'element' ? d.hit : null;
     renderUI();
@@ -3055,6 +3098,21 @@ function endDrag(ev) {
     if (dispatch({ type: 'addLink', link: { id, from: d.fromId, to: d.targetId, label: '', head: 'end', dash: 'solid', elasticity: 0, tags: [], messages: [] } })) {
       app.selection = { kind: 'link', id };
       renderUI();
+    }
+    return;
+  }
+  if (d.kind === 'element' && d.group) {
+    const ix = indexOf(app.scene);
+    const ids = d.group.filter((id) => ix.elements.has(id));
+    if (target) {
+      dispatch({ type: 'batch', cmds: ids.map((id) => ({ type: 'moveElement', id, toBubbleId: target, cell })) });
+    } else {
+      // Dropped on empty canvas: the group becomes a new bubble there.
+      const nb = newId('bb');
+      dispatch({ type: 'batch', cmds: [
+        { type: 'detachElement', id: d.id, newBubbleId: nb, x: Math.round(d.x), y: Math.round(d.y), hue: nextHue(app.scene) },
+        ...ids.filter((id) => id !== d.id).map((id) => ({ type: 'moveElement', id, toBubbleId: nb, cell: 0 })),
+      ] });
     }
     return;
   }
@@ -3142,10 +3200,11 @@ document.addEventListener('keydown', (ev) => {
   else if (mod && ev.key.toLowerCase() === 'p' && app.selection?.kind === 'element') { ev.preventDefault(); if (!$('ePull').disabled) $('ePull').click(); }
   else if (mod && ev.key.toLowerCase() === 'l' && app.selection?.kind === 'bubble') { ev.preventDefault(); $('bAddEl').click(); }
   else if (mod && ev.key.toLowerCase() === 'u' && app.selection?.kind === 'bubble') { ev.preventDefault(); addAround(app.selection.id); }
-  else if (ev.key === 'Escape') { app.pick = null; app.selection = null; renderUI(); }
+  else if (ev.key === 'Escape') { app.pick = null; app.selection = null; app.multi = []; renderUI(); }
   else if ((ev.key === 'Delete' || ev.key === 'Backspace') && app.selection) {
     ev.preventDefault();
-    const type = { bubble: 'deleteBubble', element: 'deleteElement', link: 'deleteLink' }[app.selection.kind];
+    if (app.selection.kind === 'element') { deleteSelectedElements(); return; }
+    const type = { bubble: 'deleteBubble', link: 'deleteLink' }[app.selection.kind];
     if (!type) throw new Error(`bug: cannot delete selection kind ${app.selection.kind}`);
     dispatch({ type, id: app.selection.id });
   }
@@ -3176,7 +3235,7 @@ function frame(now) {
     last = now;
     const input = {
       drag: !app.drag || !app.drag.moved ? null
-        : app.drag.kind === 'element' || app.drag.kind === 'bubble' ? { kind: app.drag.kind, id: app.drag.id, x: app.drag.x, y: app.drag.y, tether: !!app.drag.tether }
+        : app.drag.kind === 'element' || app.drag.kind === 'bubble' ? { kind: app.drag.kind, id: app.drag.id, x: app.drag.x, y: app.drag.y, tether: !!app.drag.tether, offsets: app.drag.offsets }
         : app.drag.kind === 'rope' ? { kind: 'rope', id: app.drag.id, x: app.drag.x, y: app.drag.y, rest: app.drag.rest }
         : null,
       cameraTarget: app.cam,
@@ -3199,7 +3258,7 @@ function frame(now) {
     paintPresentChrome(app.mode === 'present' && st.a > 0.001 ? { bg, ink } : null);
     renderSaveState();
     if (renderer) renderer.draw(buildFrame(app.rt, app.scene, { ...size, theme: { ...app.theme, cells: Object.fromEntries(Object.entries(cellInk).map(([h, v]) => [h, hexRgb(v)])) }, dragBubbleId: input.drag?.kind === 'bubble' ? input.drag.id : null }), backdrop);
-    drawOverlay(ctx, app.rt, app.scene, { ...size, theme: { ...app.theme, css: { ...app.theme.css, ...ink, cells: cellInk } }, mode: app.mode, selection: app.selection, dropTargetId: app.dropTargetId, dropCell: app.dropCell, dragElementId: app.drag?.kind === 'element' ? app.drag.id : null, pickMode: app.pick === 'orbit', packets: app.packets, pendingLink: app.drag?.kind === 'link' && app.drag.moved ? { fromId: app.drag.fromId, x: app.drag.x, y: app.drag.y, targetId: app.drag.targetId } : null });
+    drawOverlay(ctx, app.rt, app.scene, { ...size, theme: { ...app.theme, css: { ...app.theme.css, ...ink, cells: cellInk } }, mode: app.mode, selection: app.selection, selectedIds: selIds(), marquee: app.drag?.kind === 'marquee' && app.drag.moved ? app.drag : null, dropTargetId: app.dropTargetId, dropCell: app.dropCell, dragElementId: app.drag?.kind === 'element' ? app.drag.id : null, pickMode: app.pick === 'orbit', packets: app.packets, pendingLink: app.drag?.kind === 'link' && app.drag.moved ? { fromId: app.drag.fromId, x: app.drag.x, y: app.drag.y, targetId: app.drag.targetId } : null });
   } catch (err) {
     loopFailed = true;
     showError(err);
