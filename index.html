@@ -115,6 +115,7 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
 .iconhead input { flex: 4; min-width: 0; min-height: 30px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); }
 .iconhead .btn.icon { width: 30px; min-height: 30px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.insphead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .filter { position: relative; display: flex; align-items: center; min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); flex: 0 1 300px; min-width: 200px; }
 .filter:focus-within { border-color: var(--accent); }
 .filter .glass { width: 16px; height: 16px; margin-left: 10px; color: var(--muted); flex: none; }
@@ -422,18 +423,25 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
         <div class="field"><label for="bSpace">Membrane space</label><div class="range"><input type="range" id="bSpace" min="0.2" max="2" step="0.05"><output id="bSpaceOut" for="bSpace"></output></div></div>
         <div class="field" id="bPinchField"><label for="bPinch">Pinch</label><div class="range"><input type="range" id="bPinch" min="0" max="1" step="0.05"><output id="bPinchOut" for="bPinch"></output></div></div>
         <div class="actions">
-          <button class="btn" type="button" id="bAddEl" title="Add element (⌘L)" aria-keyshortcuts="Meta+L Control+L"><span>Add e<span class="mn">l</span>ement</span></button>
-          <button class="btn" type="button" id="bAround" title="Add around (⌘U)" aria-keyshortcuts="Meta+U Control+U"><span>Add aro<span class="mn">u</span>nd</span></button>
-          <button class="btn" type="button" id="bOrbit">Orbit…</button>
-          <button class="btn" type="button" id="bUnorbit">Leave orbit</button>
-          <button class="btn" type="button" id="bDup" title="Duplicate (⌘D)">Duplicate</button>
-          <button class="btn danger" type="button" id="bDel">Delete bubble</button>
+          <button class="btn" type="button" id="bAddEl" title="Add element (⌘L)" aria-keyshortcuts="Meta+L Control+L"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add e<span class="mn">l</span>ement</span></button>
+          <button class="btn" type="button" id="bAround" title="Add around (⌘U)" aria-keyshortcuts="Meta+U Control+U"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 8v8M8 12h8"/></svg><span>Add aro<span class="mn">u</span>nd</span></button>
+          <button class="btn" type="button" id="bOrbit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 12h.01"/></svg>Orbit…</button>
+          <button class="btn" type="button" id="bUnorbit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4.5A9 9 0 1 0 19.5 9 M14 10l7-7 M15 3h6v6"/></svg>Leave orbit</button>
+          <button class="btn" type="button" id="bDup" title="Duplicate (⌘D)" aria-keyshortcuts="Meta+D Control+D"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9h11v11H9z M5 15H4V4h11v1"/></svg><span><span class="mn">D</span>uplicate</span></button>
+          <button class="btn danger" type="button" id="bDel" title="Delete bubble (⌫)" aria-keyshortcuts="Backspace Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 11v6 M14 11v6"/></svg>Delete bubble</button>
         </div>
       </div>
     </section>
     <section id="inspElement" hidden>
       <div style="display:flex;flex-direction:column;gap:16px">
-        <h2>Element</h2>
+        <div class="insphead">
+          <h2>Element</h2>
+          <div class="actions">
+            <button class="btn icon" type="button" id="eDup" aria-label="Duplicate" title="Duplicate (⌘D)" aria-keyshortcuts="Meta+D Control+D"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9h11v11H9z M5 15H4V4h11v1"/></svg></button>
+            <button class="btn icon" type="button" id="ePull" aria-label="Pull out" title="Pull out into its own bubble (⌘P)" aria-keyshortcuts="Meta+P Control+P"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 15a6 6 0 1 1 0-12 M12 12l9 9 M14 21h7v-7"/></svg></button>
+            <button class="btn icon danger" type="button" id="eDel" aria-label="Delete element" title="Delete element (⌫)" aria-keyshortcuts="Backspace Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 11v6 M14 11v6"/></svg></button>
+          </div>
+        </div>
         <div class="field"><label for="eLabel">Label</label><input type="text" id="eLabel" maxlength="60"></div>
         <div class="field">
           <span class="lbl" id="eDescLbl">Description</span>
@@ -459,11 +467,6 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
             <button class="btn" type="button" id="eNoImg">Remove image</button>
           </div>
           <span class="status" id="eImgNote"></span>
-        </div>
-        <div class="actions">
-          <button class="btn" type="button" id="eDup">Duplicate</button>
-          <button class="btn" type="button" id="ePull">Pull out</button>
-          <button class="btn danger" type="button" id="eDel">Delete element</button>
         </div>
       </div>
     </section>
@@ -3136,6 +3139,7 @@ document.addEventListener('keydown', (ev) => {
   else if (mod && ev.key.toLowerCase() === 'y') { ev.preventDefault(); redo(); }
   else if (mod && ev.key.toLowerCase() === 'd' && app.selection?.kind === 'element') { ev.preventDefault(); duplicateSelected(); }
   else if (mod && ev.key.toLowerCase() === 'd' && app.selection?.kind === 'bubble') { ev.preventDefault(); duplicateBubble(); }
+  else if (mod && ev.key.toLowerCase() === 'p' && app.selection?.kind === 'element') { ev.preventDefault(); if (!$('ePull').disabled) $('ePull').click(); }
   else if (mod && ev.key.toLowerCase() === 'l' && app.selection?.kind === 'bubble') { ev.preventDefault(); $('bAddEl').click(); }
   else if (mod && ev.key.toLowerCase() === 'u' && app.selection?.kind === 'bubble') { ev.preventDefault(); addAround(app.selection.id); }
   else if (ev.key === 'Escape') { app.pick = null; app.selection = null; renderUI(); }
@@ -3148,7 +3152,7 @@ document.addEventListener('keydown', (ev) => {
   else if (!mod && ev.key.toLowerCase() === 'c') toggleConnect();
 });
 
-// Holding ⌘/Ctrl alone (not mid-drag, where it means "new cell") underlines the ⌘B / ⌘E / ⌘L / ⌘U letters.
+// Holding ⌘/Ctrl alone (not mid-drag, where it means "new cell") underlines the ⌘B / ⌘E / ⌘L / ⌘U / ⌘D letters.
 const cmdHint = (on) => document.body.classList.toggle('cmd-held', on);
 document.addEventListener('keydown', (ev) => cmdHint((ev.key === 'Meta' || ev.key === 'Control') && !app.drag && app.mode === 'edit'));
 document.addEventListener('keyup', (ev) => { if (ev.key === 'Meta' || ev.key === 'Control') cmdHint(false); });
