@@ -93,3 +93,12 @@ test('a slide with no backdrop colour keeps the previous one in present mode', a
   assert.equal(ownedScene(views, 'c', presentedScene(views, 'c')).stage.color, null); // saving it back keeps it following
   assert.equal(ownedScene(views, 'c', at('x', '#000000').scene).stage.color, '#000000');
 });
+
+test('deck share link round-trips and rejects damage', async () => {
+  const { encodeDeckLink, decodeDeckLink } = await import('../lib/core.js');
+  const deck = parseDeck(JSON.parse(readFileSync('examples/acme-architecture/deck.json', 'utf8')));
+  const s = await encodeDeckLink(deck);
+  assert.match(s, /^[A-Za-z0-9_-]+$/);
+  assert.deepEqual(await decodeDeckLink(s), deck);
+  await assert.rejects(decodeDeckLink(s.slice(0, s.length / 2)), /damaged/);
+});

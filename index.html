@@ -75,6 +75,7 @@ button { cursor: pointer; }
 .menu:popover-open { display: flex; flex-direction: column; }
 .menu button { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; text-align: left; }
 .menu button:hover, .menu button:focus-visible { background: var(--surface-2); }
+.menu button:disabled { opacity: 0.5; background: transparent; }
 .menu svg { width: 16px; height: 16px; flex: none; }
 .split { display: inline-flex; }
 body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 2px; } /* ⌘/Ctrl shortcut letters */
@@ -304,7 +305,23 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
   .insp { border-left: 0; border-top: 1px solid var(--line); max-height: 36vh; }
   .status { order: 10; flex-basis: 100%; }
   .hint { display: none; }
+  /* Narrow: icon-only bar buttons, brand mark only, filter takes the leftover row width. */
+  .brandname, #addBubble > span, #connect > span { display: none; }
+  .filter { flex: 1 1 160px; min-width: 0; }
+  .insp { padding: 12px 16px; gap: 12px; }
 }
+/* Collapse row: sticky at the top of the drawer, as short as the button so it costs little height. */
+.insptop { position: sticky; top: -16px; z-index: 1; display: flex; justify-content: flex-end; margin: -16px -16px -8px; padding: 4px 4px 0; background: var(--surface); }
+.insptop .btn { min-height: 28px; width: 28px; padding: 0; border-color: transparent; }
+@media (max-width: 760px) { .insptop { top: -12px; margin: -12px -16px -4px; } .insptop svg { transform: rotate(90deg); } }
+/* Collapsed: the drawer shrinks to a thin strip holding only its expand button (a column on desktop, a row when narrow). */
+.app.insp-off { grid-template-columns: minmax(0, 1fr) 36px; }
+.app.insp-off .insp { padding: 0; overflow: hidden; }
+.app.insp-off .insp > :not(.insptop) { display: none !important; }
+.app.insp-off .insptop { position: static; margin: 0; padding: 4px; justify-content: center; }
+.app.insp-off .insptop svg { transform: rotate(180deg); }
+@media (max-width: 760px) { .app.insp-off { grid-template-columns: minmax(0, 1fr); } .app.insp-off .insptop svg { transform: rotate(-90deg); } }
+#inspToggle[aria-pressed="true"] { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .hud { transition: none; } }
 </style>
 
@@ -312,7 +329,7 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
   <header class="bar">
     <div class="brand">
       <svg viewBox="0 0 26 22" aria-hidden="true"><circle cx="9" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="19.5" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-      Cell Deck
+      <span class="brandname">Cell Deck</span>
     </div>
     <button class="btn icon" id="menuBtn" type="button" popovertarget="fileMenu" aria-label="File menu" title="File menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="menu" id="fileMenu" popover role="menu" aria-label="File">
@@ -320,9 +337,11 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
       <button type="button" role="menuitem" id="openBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open…</button>
       <button type="button" role="menuitem" id="downloadBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span id="downloadTxt">Download deck.json</span></button>
       <button type="button" role="menuitem" id="saveAsBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Save as…</button>
+      <button type="button" role="menuitem" id="linkBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span id="linkTxt">Copy edit link</span></button>
+      <button type="button" role="menuitem" id="linkPresentBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18v12H3zM8 20h8M12 16v4"/></svg>Copy present link</button>
     </div>
     <div class="split">
-      <button class="btn" id="addBubble" type="button" title="Add bubble (⌘B)" aria-keyshortcuts="Meta+B Control+B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add <span class="mn">b</span>ubble</span></button>
+      <button class="btn" id="addBubble" type="button" aria-label="Add bubble" title="Add bubble (⌘B)" aria-keyshortcuts="Meta+B Control+B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add <span class="mn">b</span>ubble</span></button>
       <button class="btn icon" id="addMore" type="button" popovertarget="addMenu" aria-label="Label and icon for new bubbles" title="Label and icon for new bubbles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
     </div>
     <div class="menu addmenu" id="addMenu" popover aria-label="New bubble">
@@ -330,9 +349,10 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
       <div class="field"><span class="lbl" id="nbIconLbl">Icon</span><div class="icons" id="nbIcons" role="group" aria-labelledby="nbIconLbl"></div></div>
       <button class="btn primary" id="nbAdd" type="button">Add bubble</button>
     </div>
-    <button class="btn" id="connect" type="button" aria-pressed="false" title="Connect (C or ⌘E)" aria-keyshortcuts="C Meta+E Control+E"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="6" r="2.5"/><path d="M7 16.5C10 14 12 10 16.8 7.5"/></svg><span>Conn<span class="mn">e</span>ct</span></button>
+    <button class="btn" id="connect" type="button" aria-label="Connect" aria-pressed="false" title="Connect (C or ⌘E)" aria-keyshortcuts="C Meta+E Control+E"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="6" r="2.5"/><path d="M7 16.5C10 14 12 10 16.8 7.5"/></svg><span>Conn<span class="mn">e</span>ct</span></button>
     <button class="btn icon" id="undo" type="button" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
     <button class="btn icon" id="redo" type="button" aria-label="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+    <button class="btn icon" id="inspToggle" type="button" aria-pressed="true" aria-controls="insp" aria-label="Show inspector" title="Show inspector (⌘.)" aria-keyshortcuts="Meta+. Control+."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4zM15 4v16"/></svg></button>
     <div class="filter" id="filterWrap" role="search">
       <svg class="glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
       <input type="search" id="fQuery" placeholder="Filter by name or tag" aria-label="Filter the stage by name or tag" autocomplete="off">
@@ -378,6 +398,7 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
   </main>
 
   <aside class="insp" id="insp" aria-label="Inspector">
+    <div class="insptop"><button class="btn icon" id="inspHide" type="button" aria-label="Hide inspector" title="Hide inspector (⌘.)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></div>
     <nav class="crumbs" id="crumbs" aria-label="Selection path" hidden></nav>
     <section id="inspNone">
       <h2>Background</h2>
@@ -587,6 +608,7 @@ body.cmd-held .mn { text-decoration: underline; text-underline-offset: 3px; text
 <script type="module">
 import {
   HUES, ICONS, ICON_KEYS, LIMITS, TAG_PATTERN, normalizeTag, ElementSchema, BubbleSchema, SelectorSchema, ActionSchema, LIMIT_ACTIONS, LIMIT_CHAIN, MessageSchema, LIMIT_MESSAGES, LinkSchema, LIMIT_LINKS, StageSchema, DEFAULT_STAGE, stageTarget, presentedScene, ownedScene, hexRgb, SceneSchema, migrateScene, EMPTY_FILTER, filterActive, filterMatch, litAlpha, tagsInScene, iconsInScene, CameraSchema, ViewSchema, LIMIT_VIEWS, DeckSchema, EMPTY_DECK, parseDeck, parseOrThrow, UserError, K, slotLayout, indexOf, bubbleRadius, slotOffset, ringRadius, checkScene, applyCommand, hashPhase, createRuntime, syncRuntime, orbitTargets, gapAngle, freezeScene, buildSteps, detachGap, clamp, FIELD_PATTERN, TEMPLATE_TAG_PATTERN, fieldRefs, linkLanes, step, linkGeometry, resolveSelector, describeAction, describeMessage, sendableMessages, messageCommand, pointAlong, hitTest, elementAt, bubbleAt, bubbleLayout, cellAt, nextCell, cellWalls, powerHalf, membraneBlend, lobeField,
+  encodeDeckLink, decodeDeckLink, LIMIT_LINK,
 } from './lib/core.js';
 import { createDeckStore, memoryStorage } from './lib/store.js';
 
@@ -1254,6 +1276,7 @@ function openDeck(deck) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(deck)); store = localStore(); } catch (err) { showError(new Error(`Could not save to this browser (${err.message}). Working in memory only.`)); }
   useStore(store ?? createDeckStore(memoryStorage(), 'deck', deck), !!store);
   setParams({ src: null, view: null, present: null });
+  if (location.hash.startsWith('#deck=')) history.replaceState(null, '', location.pathname + location.search);
   return true;
 }
 // File System Access API (Chromium): opening a file through it keeps a handle, so Download writes back to that file.
@@ -1302,7 +1325,12 @@ function setParams(kv) {
 }
 async function boot() {
   const src = params.get('src');
-  if (src) {
+  const linked = location.hash.startsWith('#deck=') ? location.hash.slice(6) : null;
+  if (linked) {
+    // Like ?src: the linked deck lives in memory so it never overwrites the deck saved in this browser.
+    try { useStore(createDeckStore(memoryStorage(), 'deck', await decodeDeckLink(linked)), false); }
+    catch (err) { showError(err); useStore(createDeckStore(memoryStorage(), 'deck'), false); return; }
+  } else if (src) {
     try { useStore(createDeckStore(memoryStorage(), 'deck', await fetchDeck(src)), false); }
     catch (err) { showError(err); useStore(createDeckStore(memoryStorage(), 'deck'), false); return; }
   } else {
@@ -2358,7 +2386,29 @@ $('fileMenu').addEventListener('toggle', (ev) => {
   if (ev.newState !== 'open') return;
   const r = $('menuBtn').getBoundingClientRect();
   Object.assign($('fileMenu').style, { top: `${r.bottom + 6}px`, left: `${r.left}px` });
+  prepareLink();
 });
+// Copy link: the whole deck in #deck=, so anyone can open it without a hosted deck.json. Built when the menu opens,
+// so the click can write the clipboard straight away and the item can be disabled when the deck is too big.
+let deckLink = null;
+async function prepareLink() {
+  deckLink = null; $('linkBtn').disabled = $('linkPresentBtn').disabled = true; $('linkTxt').textContent = 'Copy edit link';
+  if (app.mode === 'edit') saveWorking();
+  const hash = `#deck=${await encodeDeckLink(app.store.get())}`;
+  const ok = location.origin.length + location.pathname.length + '?present'.length + hash.length <= LIMIT_LINK;
+  deckLink = ok ? hash : null; $('linkBtn').disabled = $('linkPresentBtn').disabled = !ok;
+  if (!ok) $('linkTxt').textContent = `Too big for a link (${Math.ceil(hash.length / 1000)}k) · Download instead`;
+}
+/** ?present opens the linked deck straight into present mode (boot handles it like any ?present link). */
+async function copyDeckLink(present) {
+  if (!deckLink) return;
+  const url = `${location.origin}${location.pathname}${present ? '?present' : ''}${deckLink}`;
+  try { await navigator.clipboard.writeText(url); } catch { prompt('Copy this link:', url); return; }
+  $('status').textContent = present ? 'Present link copied' : 'Edit link copied';
+  setTimeout(setStatus, 2000);
+}
+$('linkBtn').addEventListener('click', () => copyDeckLink(false));
+$('linkPresentBtn').addEventListener('click', () => copyDeckLink(true));
 $('fileMenu').addEventListener('click', (ev) => { if (ev.target.closest('button')) $('fileMenu').hidePopover(); });
 $('openClose').addEventListener('click', () => $('openDlg').close());
 $('openFile').addEventListener('change', (ev) => { openFileDeck(ev.target.files[0]); ev.target.value = ''; });
@@ -2676,6 +2726,17 @@ function freeSpot(x, y) {
   return { x, y };
 }
 $('addBubble').addEventListener('click', () => { const c = centreWorld(), p = freeSpot(c.x, c.y); addBubbleAt(p.x, p.y); });
+// Inspector drawer: hide it to give the stage the room (remembered per browser). The stage canvas follows via its ResizeObserver.
+function setInspector(on) {
+  $('app').classList.toggle('insp-off', !on);
+  $('inspToggle').setAttribute('aria-pressed', String(on));
+  $('inspToggle').ariaLabel = $('inspToggle').title = $('inspHide').ariaLabel = $('inspHide').title = on ? 'Hide inspector (⌘.)' : 'Show inspector (⌘.)';
+  $('inspHide').setAttribute('aria-expanded', String(on));
+  try { localStorage.setItem('celldeck.insp', on ? 'on' : 'off'); } catch {}
+}
+setInspector((() => { try { return localStorage.getItem('celldeck.insp') !== 'off'; } catch { return true; } })());
+$('inspHide').addEventListener('click', () => setInspector($('app').classList.contains('insp-off')));
+$('inspToggle').addEventListener('click', () => setInspector($('app').classList.contains('insp-off')));
 $('undo').addEventListener('click', undo);
 $('redo').addEventListener('click', redo);
 $('present').addEventListener('click', enterPresent);
@@ -2684,7 +2745,7 @@ $('exit').addEventListener('click', exitPresent);
 $('share').addEventListener('click', async () => {
   const url = location.href;
   // Without ?src the deck lives in this browser only, so the link reopens it here but not for anyone else.
-  const note = new URLSearchParams(location.search).has('src') ? 'Link copied' : 'Copied · this browser only';
+  const note = new URLSearchParams(location.search).has('src') || location.hash.startsWith('#deck=') ? 'Link copied' : 'Copied · this browser only';
   try { await navigator.clipboard.writeText(url); } catch { prompt('Copy this link:', url); return; }
   $('shareTxt').textContent = note;
   clearTimeout($('share').t); $('share').t = setTimeout(() => { $('shareTxt').textContent = 'Share'; }, 2000);
@@ -3186,6 +3247,7 @@ document.addEventListener('keydown', (ev) => {
   // ⌘B / ⌘E work from text fields too (the rich-text editor keeps its own ⌘B for bold: it stops propagation).
   if (app.mode === 'edit' && (ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'b') { ev.preventDefault(); $('addBubble').click(); return; }
   if (app.mode === 'edit' && (ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'e') { ev.preventDefault(); toggleConnect(); return; }
+  if (app.mode === 'edit' && (ev.metaKey || ev.ctrlKey) && ev.key === '.') { ev.preventDefault(); setInspector($('app').classList.contains('insp-off')); return; }
   if (typing) {
     if (ev.key === 'Escape') { ev.target.blur(); if (app.filterOpen) { app.filterOpen = false; renderFilter(); } }
     return;
