@@ -1,12 +1,28 @@
 {
-  "name": "celldeck",
-  "private": true,
+  "name": "@pritzlaff/celldeck",
+  "version": "0.1.0",
+  "description": "Cell Deck: bubble diagrams with saved views. Static page (index.html) + lib/ (core and store); no build step. `celldeck <deck.json>` edits a deck on disk.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aaronp/celldeck.git"
+  },
+  "homepage": "https://aaronp.github.io/celldeck/",
   "type": "module",
-  "description": "Cell Deck: bubble diagrams with saved views. Static page (index.html) + lib/ (core and store); no build step.",
+  "bin": {
+    "celldeck": "bin/celldeck.mjs"
+  },
+  "files": [
+    "bin",
+    "index.html",
+    "lib"
+  ],
   "scripts": {
     "test": "node --test"
   },
   "devDependencies": {
     "@sinclair/typebox": "0.32.35"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

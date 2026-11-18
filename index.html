@@ -1260,6 +1260,7 @@ function useStore(store, persist) {
   });
   renderUI(); setStatus();
 }
+/** Fetches and parses a deck; `writable` when the server (the `celldeck` CLI) accepts a PUT back to the same URL. */
 async function fetchDeck(raw) {
   const url = new URL(raw, location.href);
   let res;
@@ -1267,7 +1268,26 @@ async function fetchDeck(raw) {
   if (!res.ok) throw new Error(`Could not fetch ${url.href}: HTTP ${res.status}`);
   let json;
   try { json = await res.json(); } catch { throw new Error(`${url.href} is not JSON.`); }
-  return parseDeck(json, url.pathname.split('/').pop() || url.href);
+  return { deck: parseDeck(json, url.pathname.split('/').pop() || url.href), writable: res.headers.get('x-celldeck-writable') === '1' };
+}
+/**
+ * A file handle (the shape downloadDeck uses) that PUTs the deck back to the URL it came from.
+ * Only the `celldeck` CLI server offers one: it marks the deck it serves with x-celldeck-writable.
+ */
+function putHandle(url) {
+  return {
+    name: decodeURIComponent(url.pathname.split('/').pop() || url.href),
+    createWritable: async () => {
+      let body = '';
+      return {
+        write: async (t) => { body += t; },
+        close: async () => {
+          const res = await fetch(url, { method: 'PUT', body, headers: { 'content-type': 'application/json' } });
+          if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`.trim());
+        },
+      };
+    },
+  };
 }
 /** Open a deck from a file or URL: it replaces the deck saved in this browser, and ?src= is dropped. */
 function openDeck(deck) {
@@ -1331,7 +1351,12 @@ async function boot() {
     try { useStore(createDeckStore(memoryStorage(), 'deck', await decodeDeckLink(linked)), false); }
     catch (err) { showError(err); useStore(createDeckStore(memoryStorage(), 'deck'), false); return; }
   } else if (src) {
-    try { useStore(createDeckStore(memoryStorage(), 'deck', await fetchDeck(src)), false); }
+    try {
+      const { deck, writable } = await fetchDeck(src);
+      useStore(createDeckStore(memoryStorage(), 'deck', deck), false);
+      // Served by the `celldeck` CLI: Save writes back to the file on disk.
+      if (writable) setFileHandle(putHandle(new URL(src, location.href)));
+    }
     catch (err) { showError(err); useStore(createDeckStore(memoryStorage(), 'deck'), false); return; }
   } else {
     const store = localStore();
@@ -2417,7 +2442,7 @@ $('openForm').addEventListener('submit', async (ev) => {
   const u = $('openUrl').value.trim();
   if (!u) return;
   $('openGo').disabled = true;
-  await openFrom(() => fetchDeck(u));
+  await openFrom(async () => (await fetchDeck(u)).deck);
   $('openGo').disabled = false;
 });
 const drop = $('openDrop');

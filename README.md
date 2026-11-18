@@ -22,6 +22,15 @@ A deck is one JSON file: `{ version, scene, camera, views: [{ id, name, scene, c
 read as `1`). A file with a newer version than the page knows is refused rather than misread. Edits are saved in your browser. Use **Download** to save
 `deck.json`, and **Open** to load one from a file (drag-and-drop or pick it) or from a URL.
 
+## Editing a file on disk
+
+```sh
+npx @pritzlaff/celldeck docs/overview/deck.json   # creates it if missing
+```
+
+Serves the viewer and that deck on localhost (loopback only) and opens it. The File menu's
+**Save to deck.json** writes the deck back to the file (`PORT=…`, `NO_OPEN=1` as for the other tools).
+
 ## Links
 
 | Param | Effect |
