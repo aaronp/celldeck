@@ -14,7 +14,8 @@
   "files": [
     "bin",
     "index.html",
-    "lib"
+    "lib",
+    "deck.schema.json"
   ],
   "scripts": {
     "test": "node --test"

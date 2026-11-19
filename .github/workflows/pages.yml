@@ -37,7 +37,7 @@ jobs:
       - name: Assemble the site
         run: |
           mkdir _site
-          cp -R index.html lib examples _site/
+          cp -R index.html lib examples deck.schema.json _site/
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

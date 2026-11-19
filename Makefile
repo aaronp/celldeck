@@ -1,12 +1,16 @@
 PORT ?= 8000
 
-.PHONY: dev test dist publish bump-patch bump-minor bump-major
+.PHONY: dev test schema dist publish bump-patch bump-minor bump-major
 node_modules: package-lock.json
 	npm ci
 	@touch node_modules
 
 test: node_modules
 	npm test
+
+# deck.schema.json: DeckSchema from lib/core.js as JSON Schema (a test checks it is up to date)
+schema: node_modules
+	node -e "import('./lib/core.js').then(m=>process.stdout.write(JSON.stringify(m.DeckSchema,null,2)+'\\n'))" > deck.schema.json
 
 # Packs the `celldeck` CLI into pritzlaff-celldeck-<version>.tgz (install with: npm i -D ./pritzlaff-celldeck-*.tgz)
 dist: test
