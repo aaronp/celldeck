@@ -3,9 +3,9 @@
 // The deck is re-read on every request, so reloading shows your latest edits; File → Save writes it back (PUT).
 // A missing file is created as an empty deck, so a project can start from `celldeck docs/overview/deck.json`.
 import { createServer } from 'node:http';
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
-import { basename, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 
 const file = process.argv[2];
 if (!file || file === '-h' || file === '--help') {
@@ -15,6 +15,7 @@ if (!file || file === '-h' || file === '--help') {
 const path = resolve(file);
 await readFile(path).catch(async (e) => {
   if (e.code !== 'ENOENT') { console.error(`celldeck: cannot read ${file}: ${e.message}`); process.exit(1); }
+  await mkdir(dirname(path), { recursive: true });
   await writeFile(path, JSON.stringify({ version: 1, scene: { bubbles: [], elements: [], links: [] }, camera: { x: 0, y: 0, zoom: 1 }, views: [] }, null, 2) + '\n');
   console.log(`Created ${file}`);
 });
